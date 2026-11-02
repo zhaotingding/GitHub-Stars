@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "github-stars"
+dynamic = ["version"]
+description = "GitHub Stars++：研究者的低噪声开源项目雷达"
+requires-python = ">=3.11"
+dependencies = ["httpx>=0.27,<1", "PyYAML>=6,<7", "openai>=2,<3", "keyring>=25,<26", "tzdata>=2025.1", "pydantic>=2,<3"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8,<10", "ruff>=0.11,<1"]
+build = ["pyinstaller>=6.11,<7"]
+
+[project.scripts]
+github-stars = "github_stars.__main__:main"
+
+[tool.setuptools.dynamic]
+version = {attr = "github_stars.__version__"}
+
+[tool.setuptools.package-data]
+github_stars = ["defaults.yaml"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I"]

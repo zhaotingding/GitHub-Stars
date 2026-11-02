@@ -1,0 +1,43 @@
+schedule:
+  enabled: true
+  timezone: Asia/Shanghai
+  daily_hour: 9
+  weekly_day: 4
+  weekly_hour: 19
+discovery:
+  min_stars: 100
+  new_min_stars: 30
+  active_days: 180
+  per_query: 20
+  readme_limit: 12
+  research_queries:
+    - 'deepfake in:name,description,topics'
+    - '"self-supervised" in:name,description,topics'
+    - '"reinforcement learning" in:name,description,topics'
+    - 'topic:computer-vision'
+  hot_queries:
+    - 'topic:ai-agents'
+    - 'topic:model-context-protocol'
+profile:
+  description: '关注深度伪造检测、计算机视觉、自监督和强化学习；少量关注 AI Agent、MCP 和可复用的研究工具。每周阅读时间约 20 分钟。'
+  research_terms: [deepfake, forgery, face manipulation, computer vision, computer-vision, self-supervised, reinforcement learning, reinforcement-learning, representation learning, 深度伪造, 自监督, 强化学习]
+  hot_terms: [agent, mcp, model-context-protocol, multimodal, llm, inference, rag, artificial-intelligence, generative-ai, diffusion]
+digest:
+  max_projects: 3
+  hot_slots: 1
+  min_score: 55
+  cooldown_days: 90
+ai:
+  enabled: false
+  model: ''
+  max_calls_per_week: 3
+  max_output_tokens: 5000
+  readme_chars: 20000
+email:
+  enabled: false
+  host: ''
+  port: 465
+  security: ssl
+  username: ''
+  sender: ''
+  recipient: ''

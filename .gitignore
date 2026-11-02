@@ -1,0 +1,13 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+build/
+dist/
+*.spec
+*.exe
+data/
+config.local.yaml
+.env
+*.log
