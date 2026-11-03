@@ -1,3 +1,5 @@
+appearance:
+  theme: dark
 schedule:
   enabled: true
   timezone: Asia/Shanghai
@@ -30,9 +32,32 @@ digest:
 ai:
   enabled: false
   model: ''
-  max_calls_per_week: 3
-  max_output_tokens: 5000
+  max_calls_per_week: 10
+  max_output_tokens: 4000
   readme_chars: 20000
+  credential_source: local
+  service_tier: default
+  timeout_seconds: 180
+  auto_analyze: true
+  prompt: |
+    用中文帮助时间有限的研究者在两分钟内判断项目是否值得深入。
+    说明解决什么问题、核心思想、输入输出、与画像的具体联系、值得使用的功能、如何开始使用。
+    区分直接可用与可能迁移的想法。相关项目仅引用材料给出的真实链接，解释关系；缺少材料就明确说未知。
+    尽量具体，不写营销措辞，不把 Star 当效果证据。
+tutorial:
+  model: gpt-6-luna
+  max_calls_per_week: 3
+  max_output_tokens: 18000
+  readme_chars: 60000
+  service_tier: flex
+  timeout_seconds: 900
+  prompt: |
+    为中文 AI 研究者制作可在 20–40 分钟完成理解和首轮实践的可视化教程内容。
+    先给学习目标和最短路线，再用具体输入输出案例解释项目作用、核心概念与处理流程。
+    提供来源支持的环境要求、安装、最小示例、配置项解释、预期结果和排错步骤；缺失步骤明确标注“来源未说明”。
+    解释相关项目的关系和选用条件，仅引用已提供的真实链接。给出从最小实验到改进方案、测试验证和提交 PR 的路线。
+    把事实、作者主张和建议分开；说明哪些命令有来源，哪些思想实验或改进建议尚未验证。
+    每个实践步骤有明确目标与可判断的结果，检查点用问题和参考答案检验理解。不要只堆砌章节名。
 email:
   enabled: false
   host: ''

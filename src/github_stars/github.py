@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import base64
+import re
 import time
 from datetime import timedelta
+from urllib.parse import urlsplit
 
 import httpx
 
@@ -58,6 +60,38 @@ class GitHub:
             raise GitHubError("README 太大或编码不支持，保留元数据供手动阅读")
         content = base64.b64decode(doc["content"]).decode("utf-8", errors="replace")
         return content[:100000], doc["sha"], doc["html_url"]  # 有界缓存，发送模型时再截短。
+
+    def repository(self, name):
+        return self.get(f"/repos/{name}")  # 手动导入直接定位，不经过高星或画像门槛。
+
+
+def parse_repositories(text):
+    urls = re.findall(r"(?<![\w.@/-])(?:https?://)?(?:www\.)?github\.com/[^\s<>\]\)\"']+", text, flags=re.I)
+    if not urls and re.fullmatch(r"[\w.-]+/[\w.-]+", text.strip()):
+        urls = ["https://github.com/" + text.strip()]
+    result, seen = [], set()
+    for url in urls:
+        parsed = urlsplit(url if "://" in url else "https://" + url)
+        if parsed.hostname.lower() not in {"github.com", "www.github.com"} or parsed.username or parsed.password or parsed.port:
+            continue
+        parts = parsed.path.strip("/").split("/")
+        if len(parts) < 2:
+            continue
+        owner, repo = parts[:2]
+        repo = repo.rstrip(".,;，。；").removesuffix(".git")
+        if not re.fullmatch(r"[A-Za-z0-9-]+", owner) or not re.fullmatch(r"[A-Za-z0-9_.-]+", repo) or repo in {".", ".."}:
+            continue
+        if owner.lower() in {"settings", "topics", "collections", "orgs", "users", "search", "marketplace"}:
+            continue
+        name = f"{owner}/{repo}"
+        if name.lower() not in seen:
+            seen.add(name.lower())
+            result.append(name)
+    if not result:
+        raise ValueError("未找到有效 GitHub 仓库链接；请粘贴 https://github.com/作者/仓库 或包含链接的文字")
+    if len(result) > 10:
+        raise ValueError("每次最多导入 10 个不同仓库，请分批粘贴")
+    return result
 
 
 def queries(config, now):

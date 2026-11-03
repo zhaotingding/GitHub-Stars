@@ -1,6 +1,8 @@
 import tkinter as tk
+from types import SimpleNamespace
 
 import pytest
+from test_workflow import NOW, repository
 
 from github_stars.config import Paths
 from github_stars.gui import App
@@ -31,6 +33,38 @@ def test_empty_gui_settings_save_and_reopen(tmp_path, monkeypatch):
         app.update()  # Windows Configure 消息先落地，随后检查子控件布局。
         app.update_idletasks()
         assert app.tabs.winfo_y() + app.tabs.winfo_height() < app.winfo_height()
+    finally:
+        for task in app.tk.call("after", "info"):
+            app.after_cancel(task)
+        app.destroy()
+
+
+def test_inline_state_and_theme_cover_open_child_window(tmp_path, monkeypatch):
+    paths = Paths(tmp_path)
+    config = paths.load()
+    config["schedule"]["enabled"] = False
+    paths.save(config)
+    app = App(paths)
+    try:
+        app.service.store.upsert(repository(1), "research", NOW)
+        app.refresh()
+        app.update()
+        box = app.projects.bbox("1", "state")
+        app.project_cell(SimpleNamespace(x=box[0] + 8, y=box[1] + 8))
+        editor = app.state_editor
+        assert editor is not None
+        editor.set("正在研究")
+        editor.event_generate("<<ComboboxSelected>>")
+        app.update()
+        assert app.service.store.one("SELECT study_state FROM repos WHERE id=1")["study_state"] == "studying"
+        assert app.projects.set("1", "state") == "正在研究"
+        app.import_dialog()
+        child = next(w for w in app.winfo_children() if isinstance(w, tk.Toplevel))
+        app.theme_choice.set("浅色")
+        app.change_theme()
+        assert child.cget("background") == app.theme_palette["bg"]
+        assert paths.load()["appearance"]["theme"] == "light"
+        child.destroy()
     finally:
         for task in app.tk.call("after", "info"):
             app.after_cancel(task)

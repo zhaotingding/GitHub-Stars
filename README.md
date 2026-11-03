@@ -1,24 +1,84 @@
 # GitHub Stars++
 
-每天观察 GitHub，每周只读几项。当前版本 **0.1.0**，面向 Windows 上的个人 AI 研究者。
+每天发现值得知道的开源项目，用两分钟初始分析决定是否深入，再主动生成可实践的教程。当前版本 **0.1.1**，面向 Windows 上时间有限的 AI 研究者。
 
-它把公开项目发现、研究相关性筛选、中文导读与教程、邮件周报串成一条可持续运行的流程。默认关注深度伪造检测、计算机视觉、自监督、强化学习，同时保留少量 AI Agent、MCP 和研究工具名额。
+默认关注深度伪造检测、计算机视觉、自监督、强化学习，兼顾 AI Agent、MCP 和研究工具。程序提供每日有限采样和每周少量推荐，也支持把阅读资料中看到的仓库直接收进项目雷达。
 
-## 0.1.0 已提供
+## 日常使用
 
-- **每日发现**：GitHub 官方 REST API，多条研究／热点查询，高星活跃项目与近 45 天新项目；默认每条最多 20 项，每次最多读取 12 份 README。结果去重保存到 SQLite。
-- **每周少量推荐**：默认每周最多 3 项，其中热点最多 1 项；低于质量门槛不推荐，不凑数。同一作者每期最多一项，90 天内不重复推荐。
-- **解释入选理由**：研究／热点关键词、活跃度、Star、README 完整度、许可证、本地跨日 Star 变化。首日没有增速证据就显示未知。
-- **桌面阅读**：项目搜索、收藏、忽略、恢复候选、每周精选、历史周报、HTML／Markdown 导出、运行与 AI 用量记录。
-- **OpenAI 教程**：填写账户可用的模型 ID 和 API Key 后，生成中文概述、研究联系、入门步骤与限制。有调用次数和输出 Token 上限，缓存成稿，可恢复已返回结果。
-- **邮件推送**：SMTP SSL／STARTTLS，纯文本＋HTML 周报，独立发送状态。空周报不自动发送。
-- **定时运行**：窗口内自动检查，另有 Windows 计划任务用于关闭窗口后运行；任务互斥、每日去重、当前周补跑。
+1. **收集项目**：点击“立即采集”，或点击“粘贴仓库链接”，粘贴网址／包含 Markdown 链接的文字。粘贴后自动导入；一次最多 10 个不同仓库，重复链接去重，`tree`、`blob` 等子路径归一到所属仓库。手动导入直接查询仓库，不受 Star 和画像门槛限制。
+2. **整理研究状态**：在列表的“研究状态”栏选择“待研究、收藏、已研究、重点、正在研究”。重点优先，已研究不再进入新周报；“打开 GitHub”位于每行操作位置。详情用于阅读原始介绍和初始分析。
+3. **快速判断价值**：启用模型后，首次初始分析说明项目做什么、核心思想、值得使用的功能、与你研究的联系、如何开始使用及相关项目。已有分析复用，可在“任务与恢复”查看状态。
+4. **决定深入后生成教程**：点击“生成 HTML 教程”会新建一次教程请求。成功后打开本地交互 HTML，按概念、流程、实践、配置、相关项目和改进／PR 路线学习。“打开已有教程”只打开已有结果，不重新调用模型。
+5. **每周阅读少量精选**：默认周五 19:00 准备周报，最多 3 项，其中热点最多 1 项；不足门槛就少推。可导出 HTML／Markdown，配置 SMTP 后邮件推送。
 
-这是一套有限采样的个性化发现工具，不是 GitHub 全站排行榜，也不读取新闻或声称捕获全部 AI 热点。0.1.0 使用可解释的规则筛选；模型负责解读与教程，不负责替你认定项目有效。
+推荐使用关键词、活跃度、README、许可证和 Star 观测规则，不是 GitHub 全站排行榜。没有跨日快照时 Star 增速显示未知；研究状态和规则分数不等于项目效果验证。
 
-## 首次安装
+## 主题与本地设置
 
-前提：已安装 Conda，Windows 10/11，Python 3.11。普通 PowerShell 即可，前提是对源码与所选环境有写权限。不要安装到 base，不要使用 `pip --user`，不需要 venv。
+程序默认深色，可以切换浅色。主题写入根目录 `config.local.yaml` 的 `appearance.theme`，应用到当前主界面、导入、状态选择、恢复和提示等应用窗口。已有 YAML 缺少主题时只补默认主题，不覆盖个人 API 或研究偏好。
+
+```yaml
+appearance:
+  theme: dark  # dark 或 light
+```
+
+HTML 教程导出时使用应用当前主题，页面内可独立切换深浅色，流程、代码区和实践步骤同步变化。
+
+## 初始分析与深入教程
+
+两类任务独立配置、计数和保存结果，共用所选 OpenAI 凭据。模型 API 默认关闭；请先在“偏好与连接”设置模型与凭据，再勾选启用。
+
+| 设置 | 初始分析 `ai` | 深入教程 `tutorial` |
+| --- | --- | --- |
+| 用途 | 两分钟判断是否值得深入 | 20–40 分钟理解并开始实践 |
+| 模型 | `ai.model`，由你填写 | 默认 `gpt-6-luna`，可改为账户可用模型 |
+| 服务等级 | 默认 `default` | 默认 `flex` |
+| 每次输出 Token 上限 | 4000 | 18000 |
+| README 输入字符上限 | 20000 | 60000 |
+| 超时 | 180 秒 | 900 秒 |
+| 每周新建请求上限 | 10 次 | 3 次 |
+| 提示词 | `ai.prompt`，可编辑 | `tutorial.prompt`，可编辑 |
+| 触发 | 主动；可选首次打开项目／周报入选时自动分析 | 仅主动点击生成 |
+
+表中是新配置默认值。升级时个人已有设置保持原值，例如 0.1.0 保存的每周请求数不会自动改成 10。`ai.auto_analyze` 默认 `true`，但只有 `ai.enabled` 启用后才工作；不希望打开项目时调用模型，可以关闭它。定时任务只生成短分析，**不会自动生成深入教程**。
+
+教程使用独立模型和更大的材料／输出预算。默认 Luna＋Flex 用于控制成本；实际可用性、费用取决于账户、模型与服务端。Flex 不可用、输出截断或连接中断时，不自动切换更贵档位或重新提交。这些是调用次数和长度限制，**不是金额预算**。
+
+在“提示词”页分别编辑初始分析和教程提示词。默认教程要求：用具体输入输出解释思想；提供有来源的环境、安装、最小示例、配置、成功判据和排障；比较材料中真实出现的相关项目；给出小实验、改进、测试与 PR 路线。修改只影响下一次新请求，不改写在途任务或历史结果。
+
+### API 凭据
+
+在“初始分析”页选择 `local`、`msgx` 或 `autogpu`：
+
+- `local` 使用本项目保存的 API Key；`OPENAI_API_KEY` 环境变量优先。
+- `msgx`／`autogpu` 复用当前 Windows 用户已保存的相应应用 OpenAI 凭据。只在请求时读取原条目，不复制密钥、不新建旧应用凭据，不改变原应用配置。
+- 找不到条目或无法读取时明确提示，不自动改用另一来源。已存凭据、可读取与真实请求成功分别判断。
+
+本版本使用官方 OpenAI Responses 和结构化输出，固定连接官方 API。无需把密钥发到聊天里或写入 YAML。GitHub Token 和 SMTP 授权码仍分别保存为本项目凭据；终端临时变量不保证被 Windows 计划任务继承。
+
+### 请求、恢复与证据
+
+请求保存用途、模型、等级、预算、提示词和材料快照。返回后先记录原响应、响应 ID、实际模型／等级和已知 Token，再校验成稿。用量页按用途显示；失败／未知提交也占用该用途周次数，未知用量不计作零费用。
+
+- **初始分析完成**：再次查看复用结果。
+- **教程完成**：每次点击“生成 HTML 教程”表示重新生成；只想阅读请点“打开已有教程”。
+- **received / invalid**：保留原响应和用量，先在“任务与恢复”尝试恢复；截断或结构不完整不能作为成稿。
+- **unknown**：无响应 ID 时需先核对服务端记录；有 ID 时可 GET 原响应。恢复／打开不新建生成请求，明确重新生成才再 POST。
+
+公开元数据、README 节选、研究画像，以及生成教程时已有的初始分析会发送给所选 OpenAI 账户。请求使用 `store=true`，原响应取回仍受服务端保留状态约束。
+
+教程以提供资料为依据，未安装仓库、运行命令或验证性能；相关项目只引用材料给出的真实链接，缺项明确标注，建议与作者主张分开。模型内容作为文字进入固定 HTML 模板，不执行模型生成的脚本。
+
+## HTML 教程怎么学习
+
+文件保存在 `data/tutorials/<仓库ID>-<任务ID>.html`，可直接双击离线打开，无 CDN、远程字体或图片依赖。页面包含概念示例、逐节点流程、实践步骤导航、代码复制、预期结果与排障、配置表、相关项目、贡献路线和检查点答案。
+
+实践进度可勾选、保存、重置；勾选代表你亲自核对，不是程序实测。复制不会执行命令；浏览器不允许直接复制时会选中文字供手动复制。外部来源链接需联网。完成首轮实践后，选一个可验证的小改进，阅读上游贡献说明、补测试，再准备 PR。
+
+## 首次安装与启动
+
+前提：已安装 Conda，Windows 10/11，Python 3.11。普通 PowerShell 即可，前提是对源码与环境有写权限。使用独立环境，不使用 base、`pip --user` 或嵌套 venv。
 
 在项目目录执行；仅在环境不存在时创建：
 
@@ -30,47 +90,34 @@ conda run -n github-stars --no-capture-output python -s -m github_stars --check-
 conda run -n github-stars --no-capture-output python -s -m github_stars
 ```
 
-环境检查应输出 `valid: true`，Python 与第三方模块属于同一个 Conda prefix，`user_site: false`。Conda 名称实际解析到哪里由你本机配置决定，不要求某个固定磁盘路径。创建／安装失败时先解决目录权限或网络问题，不要继续运行或改成用户级安装。
+环境检查应输出 `valid: true`，Python 与依赖来自同一 Conda prefix，`user_site: false`。环境位置由本机配置决定；安装失败先解决权限或网络问题，再运行应用。自定义环境名时，安装、启动、构建和计划任务均使用同一名称。
 
-如果采用自定义环境名，后续安装、启动、构建和计划任务都使用同一名称。双击 EXE 的默认名称仍是 `github-stars`，可以用 `--env 自定义名称` 明确选择。
+根目录 `GitHub Stars++.exe` 是源码启动器，不能脱离源码和环境运行；业务源码更新后重开即可。默认选择 `github-stars`，可用 `--env` 指定其他专用环境。
 
-## 第一次使用
+```powershell
+conda run -n github-stars --no-capture-output '.\GitHub Stars++.exe'
+```
 
-1. 打开 **偏好与连接 → 研究画像**，确认背景、研究关键词与热点关键词。画像文字用于教程个性化；候选筛选使用关键词和“检索来源”中的查询，两者需按需要一起调整。
-2. 在 **检索来源** 可保存 GitHub Token。公开仓库可匿名检索，但匿名 REST 额度较小、可能被同一出口其他请求共享；Token 仅用于读取，不需要仓库写权限。限流时保留已采集数据，日志显示原因，之后再试。
-3. 点击 **立即采集**。查看候选的原始介绍、匹配理由和来源。收藏用于优先选择，忽略后不再入选；恢复可撤销忽略。
-4. 点击 **每周精选 → 生成本周精选**。同一自然周复用同一份选集；请完成采集、调整偏好后再生成。已生成的历史选集保留当时元数据，后续收藏／忽略不重写历史。
-5. 配置 OpenAI 后可对选中项目点击 **生成教程**。每周自动任务也会为本周入选项目生成教程。无 API 时，应用提供原始简介、事实指标和通用阅读路线，不把它称为 AI 教程。
-6. 配置邮件后可点击 **发送邮件**，默认周五到期后自动发送。SMTP 接受只代表服务器收件，不保证最终投递到收件箱；也请检查垃圾邮件。
+直接双击要求 `CONDA_EXE` 或 PATH 可以找到 `conda.exe`，也可通过 `--conda` 指定。只有启动器实现或资源变化才重建：
 
-不需要在聊天中发送密钥。在应用中输入并保存即可。
+```powershell
+conda run -n github-stars --no-capture-output python -s -m pip install --no-user -e '.[build]'
+conda run -n github-stars --no-capture-output python -s tools/build_launcher.py
+```
 
-## OpenAI 设置与收费边界
+产物在 `dist/`；根目录已有启动器时保留旧文件，验证后再替换。EXE 不提交 Git。
 
-在 **OpenAI 教程** 填写你账户可用、支持 Responses 和结构化输出的模型 ID，保存 API Key，勾选启用。首版固定使用官方 `https://api.openai.com/v1`，不默默改投第三方接口。应用不替你猜测模型可用性或最新价格。
+## 每周推荐、邮件与自动运行
 
-默认每周最多 **3 次请求**，每次最多 **5000 输出 Token**，每份 README 最多发送 **20000 字符**。这是调用次数和长度限制，**不是金额预算**。失败与未知提交也占用当周次数；已完成缓存、查询原响应不算新建生成请求。运行与用量页显示服务端实际返回的输入／输出 Token，未知用量不会计作零。
+“研究画像”背景用于个性化解释；关键词和“检索来源”查询用于发现与规则筛选。GitHub Token 可选，匿名额度较小且可能被同出口请求共享；限流时保留数据，查看记录后再试。
 
-启用后，入选仓库的公开元数据、README 节选和你填写的研究画像会发送给 OpenAI。请求使用 `store=true`，以便有响应 ID 时查询原结果；是否仍能取回取决于服务端保留状态。不要在画像填写不希望提交的个人资料。
+每周默认最多 3 项，单作者每期至多一项，90 天内推荐过的项目排除。同周复用选集，研究状态变化不重写历史。手动导入能进入雷达，进入周报仍需满足推荐规则。最近采集未完整成功时不封存新周报；空选集不自动发信。
 
-教程只以提供的 README 快照为依据。没有安装、代码执行或实验验证；官方步骤与模型建议要求区分。README 内容被作为低权限材料，生成内容不会自动执行。模型仍可能出错，运行命令前应回看官方来源。
+在“邮件推送”填写 SMTP 服务器、端口、SSL／STARTTLS、用户名、发件邮箱、一个收件邮箱及授权码。启用后到期任务可能立即使用新设置发送当前周报。SMTP 接受代表服务器收件，不保证进入收件箱。
 
-- **已完成**：再次点击复用缓存。
-- **received / invalid**：保留原响应、响应 ID 与已知用量；先点击“恢复结果”。格式不正确或输出截断不能自动当作成稿。
-- **unknown**：断线／中断导致结果不明，不自动重新 POST。有 ID 时尝试恢复，无 ID 时需先核对服务端记录。
-- **明确重新生成**：界面会提示可能再次产生费用，确认后新建请求，仍受每周次数上限约束。
+连接／认证失败为 `failed`，至少间隔 6 小时自动重试；发送阶段断线为 `unknown`，先检查收件箱，再决定是否重发。`sent` 周报不自动重发。
 
-## 邮件配置
-
-在 **邮件推送** 填写 SMTP 服务器、端口、加密方式、用户名、发件邮箱、收件邮箱，以及密码或邮箱提供商的授权码。常见配置为 SSL 465 或 STARTTLS 587，具体以邮箱官方说明为准。首版每份周报支持一个收件地址。
-
-勾选“启用每周邮件”并保存后，下次到期任务可发送邮件；若本周已到周报时间且已有选集，可能在下一次自动检查立即发送。
-
-连接／认证阶段失败标记 `failed`，自动流程至少间隔 6 小时重试。进入发送阶段后断线标记 `unknown`，先检查收件箱，只有明确重发才再提交。已确认 `sent` 的周报不自动重发，SMTP 不提供跨网络断线的严格 exactly-once 保证。
-
-## 关闭窗口后的自动运行
-
-在项目目录、当前 Windows 用户的 PowerShell 中执行：
+关闭窗口后需要 Windows 计划任务。在项目目录、当前 Windows 用户的 PowerShell 执行：
 
 ```powershell
 ./tools/install_schedule.ps1
@@ -78,57 +125,38 @@ Get-ScheduledTask -TaskName 'GitHub Stars++'
 Get-ScheduledTaskInfo -TaskName 'GitHub Stars++'
 ```
 
-预期任务状态为 `Ready`。任务以当前用户、普通权限运行；不保存 Windows 密码。每小时触发一次及登录时触发，内部按配置判断是否需要工作。默认北京时间每天 09:00 之后首次检查采集，每周五 19:00 之后首次检查生成并推送。
+预期状态 `Ready`。当前用户普通权限运行，不保存 Windows 密码；每小时及登录时判断是否到期。默认北京时间每天 09:00 后首次检查采集，周五 19:00 后准备周报、可选短分析并发送邮件。
 
-**需要电脑开机且当前用户已登录；锁屏可运行，关机、睡眠或退出登录时无法检查。** 重新可用后只补当前日期／当前周，不追补所有历史周、不会连续轰炸邮件。窗口内每分钟检查和计划任务共享锁，避免并发重复工作。保持界面开启也能自动检查，但不会让电脑保持唤醒。
+**电脑需要开机且用户已登录；锁屏可运行，睡眠、关机或退出登录时无法检查。** 重新可用后只补当前日期／当前周。窗口计时器和任务共享锁，程序不保持电脑唤醒。
 
-计划任务固定绑定安装时解析到的 `pythonw.exe` 和当前源码路径。移动环境或源码后，在新位置重新安装计划任务；同名任务若属于其他目录，脚本拒绝覆盖，需要先移除旧任务或指定不同名称。只改业务源码／设置无需重装任务。
-
-移除自动任务（不会删除数据）：
+任务绑定安装时 `pythonw.exe` 与源码路径。只改源码／设置无需重装；移动环境或源码后重新安装。同名任务若属于其他目录会拒绝覆盖。移除任务保留环境与数据：
 
 ```powershell
 ./tools/install_schedule.ps1 -Remove
 ```
 
-也可在应用设置关闭“启用自动检查”；任务仍存在，但每次触发后立即结束。
+也可在应用内关闭自动检查。
 
-## 轻量 EXE
+## 数据与从 0.1.0 升级
 
-本机首版已构建的入口是根目录 `GitHub Stars++.exe`。它启动源码，业务代码修改后重开即可生效；它不能脱离源码和 Conda 环境独立运行，不附带 `_internal` 业务运行时。
-
-```powershell
-conda run -n github-stars --no-capture-output '.\GitHub Stars++.exe'
-```
-
-直接双击要求 `CONDA_EXE` 或 PATH 可以找到 `conda.exe`；找不到时会给出说明。不要修改系统 PATH 来绕过不明故障，可以在命令行明确传 `--conda`。构建入口：
-
-```powershell
-conda run -n github-stars --no-capture-output python -s -m pip install --no-user -e '.[build]'
-conda run -n github-stars --no-capture-output python -s tools/build_launcher.py
-```
-
-构建产物在 `dist/`；根目录没有启动器时会首次复制，有旧入口时保留旧文件，验证新产物后再替换。EXE 不提交 Git。
-
-## 数据、配置与升级
-
-| 内容 | 位置 | 处理方式 |
+| 内容 | 位置 | 管理方式 |
 | --- | --- | --- |
-| 源码／默认配置／测试／文档 | `src/`、`tools/`、`tests/`、`docs/` | Git 管理 |
-| 独立运行环境 | Conda `github-stars` | 不放源码仓库，不删除重建作为日常升级 |
-| 个人配置 | 根目录 `config.local.yaml` | GUI 保存，Git 忽略，保留用户内容 |
-| 密钥／SMTP 授权码 | Windows 凭据库 | 按资料根隔离，不写 YAML／数据库 |
-| 仓库、历史、反馈、AI 用量 | `data/stars.sqlite3` | 用户数据，Git 忽略 |
-| 可读周报 | `data/reports/` | HTML 与 Markdown，可以重新导出 |
+| 源码／共享默认值／测试／说明 | `src/`、`tools/`、`tests/`、`docs/` | Git 管理 |
+| 独立环境 | Conda `github-stars` | 日常升级复用，不混入源码 |
+| 主题与个人设置 | `config.local.yaml` | GUI 保存，Git 忽略 |
+| 密钥／授权码 | Windows 凭据库 | 本地条目按资料根隔离；可只读复用所选既有 API 条目 |
+| 仓库、状态、历史、用量 | `data/stars.sqlite3` | 用户数据，Git 忽略 |
+| 周报／交互教程 | `data/reports/`、`data/tutorials/` | 可独立阅读，可从完成结果重新导出 |
 
-默认资料根是项目根；CLI 可用 `--root '其他路径'`，也可用 `GITHUB_STARS_ROOT`。除测试外，不随意更换正在使用的资料根。环境变量 `OPENAI_API_KEY`、`GITHUB_TOKEN`、`GITHUB_STARS_SMTP_PASSWORD` 优先于凭据库；计划任务不保证继承你某个终端临时设置的变量，日常建议用界面保存。
+schema 1→2 增加研究状态、手动来源、任务用途／设置，保留项目、Star 快照、历史选集、原响应和用量。旧收藏映射为收藏；旧忽略继续排除，设置新研究状态后可恢复。旧结果保留为 `legacy`，在“任务与恢复”查看，不与新分析／教程混用。升级后的数据库不要再用 0.1.0 打开。
 
-普通源码更新保留原环境、`config.local.yaml` 和整个 `data/`，依赖变化才重新执行 editable 安装。不要用空模板覆盖个人设置。移动源码后需重新建立 editable 关联；换资料根或 Windows 用户后，凭据库命名空间不同，需要重新配置密钥。
+保留原环境、`config.local.yaml` 和整个 `data/`；依赖变化才更新安装。缺失的新设置从默认值补齐，个人已有模型、预算、提示词保持原值，不用空模板覆盖。
 
-备份 SQLite 前关闭应用并停用计划任务，或使用 SQLite 一致性备份 API；不要把仍在写入的单个 `.sqlite3` 文件当作完整备份。未来更高 schema 的数据库会拒绝被 0.1.0 打开，避免静默降级。
+默认资料根为项目根，可通过 `--root '其他路径'` 或 `GITHUB_STARS_ROOT` 指定。移动源码后重建 editable 关联；更换资料根或 Windows 用户后，本项目凭据命名空间可能不同，既有应用凭据也不保证可用。备份 SQLite 前关闭写入者并停用任务，或使用 SQLite 一致性备份 API，运行中的单个数据库文件不一定完整。
 
 ## 开发与验证
 
-执行目录为项目根，专用环境需要写权限：
+在项目根、可写专用环境中执行：
 
 ```powershell
 conda run -n github-stars --no-capture-output python -s -m pip install --no-user -e '.[dev]'
@@ -136,17 +164,14 @@ conda run -n github-stars --no-capture-output python -s -m pytest -q
 conda run -n github-stars --no-capture-output python -s -m ruff check src tests tools
 ```
 
-测试使用临时数据库、模拟密钥、GitHub／OpenAI HTTP 响应和 SMTP；不调用付费 API、不发送真实邮件。GUI 测试需要桌面，缺少显示环境时明确跳过。验收边界见 [0.1.0 验收记录](docs/verification-0.1.0.md)。
+测试使用临时数据库、模拟密钥、GitHub／OpenAI HTTP 响应与 SMTP，不新建真实收费请求或发送真实邮件。GUI 需要桌面，浏览器渲染与 SDK 模拟分别验收。范围见 [0.1.1 验收记录](docs/verification-0.1.1.md)，[0.1.0](docs/verification-0.1.0.md) 保留为历史。
 
-命令行也可直接使用：`python -s -m github_stars scan`、`digest`、`tick`、`status`。`digest` 固定选集并导出，不主动发送；`tick` 执行到期采集、自动教程和邮件。
-
-实现分工与后续方向见 [设计说明](docs/design.md)。
+CLI 可用 `python -s -m github_stars scan`、`digest`、`tick`、`status`；`digest` 固定选集并导出，`tick` 执行到期采集、可选短分析和邮件。架构见 [设计说明](docs/design.md)。
 
 ## 接口依据
 
-- [GitHub 仓库搜索 API](https://docs.github.com/en/rest/search/search#search-repositories)：有限查询结果、搜索专属限额。
-- [GitHub README API](https://docs.github.com/en/rest/repos/contents#get-a-repository-readme)：README 内容与来源。
-- [GitHub REST 限流说明](https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api)：认证与匿名限额的差异。
-- [OpenAI Python SDK](https://developers.openai.com/api/reference/python)、[结构化输出](https://developers.openai.com/api/docs/guides/structured-outputs)：Responses、JSON Schema、实际用量及响应对象。
+- [GitHub 搜索](https://docs.github.com/en/rest/search/search#search-repositories)、[README](https://docs.github.com/en/rest/repos/contents#get-a-repository-readme)、[REST 限流](https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api)：有限查询与公开元数据。
+- [OpenAI Python SDK](https://developers.openai.com/api/reference/python)、[结构化输出](https://developers.openai.com/api/docs/guides/structured-outputs)：请求、响应状态与结构化结果。
+- [GPT-6 Luna](https://developers.openai.com/api/docs/models/gpt-6-luna)、[Flex Processing](https://developers.openai.com/api/docs/guides/flex-processing)：教程默认模型与档位，实际能力、费用、账户权限仍需核对。
 
-接口实现于 2026-11-02 核对官方文档；本机真实调用和模拟测试分别记录，不以文档支持代替账户联通验收。
+文档支持、模拟测试、浏览器渲染和真实账户生成分别记录，未执行的收费／投递不表述为通过。

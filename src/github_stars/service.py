@@ -5,10 +5,11 @@ from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 from . import ai, mailer
-from .github import GitHub, GitHubError, queries
+from .github import GitHub, GitHubError, parse_repositories, queries
 from .ranking import choose, rank
 from .reports import export_digest
-from .store import Store, exclusive
+from .store import STUDY_STATES, Store, exclusive
+from .tutorial_html import export_tutorial
 
 
 class Service:
@@ -34,13 +35,32 @@ class Service:
                     return self.scan(config, now)
                 if action == "digest":
                     return self.digest(config, now)
-                if action == "tutorial":
+                if action == "import":
+                    return self.import_repositories(config, now, kwargs["text"])
+                if action == "study_state":
+                    state = kwargs["state"]
+                    if state not in STUDY_STATES:
+                        raise ValueError("请选择有效研究状态")
+                    self.store.execute("UPDATE repos SET study_state=?,feedback=? WHERE id=?",
+                                       (state, "saved" if state in {"saved", "focus"} else "new", kwargs["repo_id"]))
+                    return f"已标记为{STUDY_STATES[state]}"
+                if action in {"analysis", "tutorial"}:
                     row = self.store.one("SELECT * FROM repos WHERE id=?", (kwargs["repo_id"],))
                     if not row:
                         raise ValueError("项目不存在")
-                    return ai.generate(self.paths, self.store, config, row, now, retry=kwargs.get("retry", False))
+                    row = self.ensure_readme(row, now)
+                    result = ai.generate(self.paths, self.store, config, row, now, retry=kwargs.get("retry", False), kind=action)
+                    return self.generated_result(row, result, config)
                 if action == "recover":
-                    return ai.recover(self.paths, self.store, kwargs["repo_id"], now)
+                    row = self.store.one("SELECT * FROM repos WHERE id=?", (kwargs["repo_id"],))
+                    result = ai.recover(self.paths, self.store, kwargs["repo_id"], now, kind=kwargs.get("kind", "tutorial"))
+                    return self.generated_result(row, result, config)
+                if action == "open_tutorial":
+                    row = self.store.one("SELECT * FROM repos WHERE id=?", (kwargs["repo_id"],))
+                    job = self.store.one("SELECT result FROM ai_jobs WHERE repo_id=? AND kind='tutorial' AND status='completed' ORDER BY id DESC LIMIT 1", (kwargs["repo_id"],))
+                    if not job:
+                        raise ValueError("该项目尚未生成 HTML 教程")
+                    return self.generated_result(row, json.loads(job["result"]), config)
                 if action == "email":
                     return mailer.send_digest(self.paths, self.store, config, kwargs["week"], now, retry=kwargs.get("retry", False))
                 if action == "tick":
@@ -51,6 +71,55 @@ class Service:
                 safe = str(exc) if isinstance(exc, (ValueError, RuntimeError)) else type(exc).__name__
                 self.store.event(now, "ERROR", f"{action}：{safe}")
                 raise
+
+    def generated_result(self, row, result, config):
+        if result.get("_kind") != "tutorial":
+            return {"message": "旧版教程已恢复，可在任务窗口阅读" if result.get("_kind") == "legacy" else "初始分析已保存", "repo_id": row["id"]}
+        job = self.store.one("SELECT evidence FROM ai_jobs WHERE id=?", (result["_job_id"],))
+        evidence = json.loads(job["evidence"])
+        source = {**row, "readme_url": evidence["readme_url"], "readme_sha": result["_sha"], "readme_at": result["_captured"]}
+        page = export_tutorial(self.paths, source, result, result["_job_id"], config["appearance"]["theme"])
+        return {"message": "HTML 教程已就绪", "path": str(page), "repo_id": row["id"]}
+
+    def ensure_readme(self, row, now):
+        if len(row["readme"].strip()) >= 300:
+            return row
+        client = self.github_factory(self.paths.secret("github"))
+        try:
+            content, sha, url = client.readme(row["name"])
+            self.store.execute("UPDATE repos SET readme=?,readme_sha=?,readme_url=?,readme_at=? WHERE id=?",
+                               (content, sha, url, now.isoformat(), row["id"]))
+        finally:
+            client.close()
+        return self.store.one("SELECT * FROM repos WHERE id=?", (row["id"],))
+
+    def import_repositories(self, config, now, text):
+        names = parse_repositories(text)
+        client = self.github_factory(self.paths.secret("github"))
+        imported, problems = [], []
+        try:
+            for name in names:
+                try:
+                    repo = client.repository(name)
+                    self.store.upsert(repo, "hot", now)
+                    self.store.execute("UPDATE repos SET manual=1 WHERE id=?", (repo["id"],))
+                    imported.append(repo["id"])
+                    try:
+                        content, sha, url = client.readme(repo["full_name"])
+                        self.store.execute("UPDATE repos SET readme=?,readme_sha=?,readme_url=?,readme_at=? WHERE id=?",
+                                           (content, sha, url, now.isoformat(), repo["id"]))
+                    except GitHubError as exc:
+                        problems.append(f"{name} README：{exc}")
+                except GitHubError as exc:
+                    problems.append(f"{name}：{exc}")
+        finally:
+            client.close()
+        self.rescore(config, now)
+        message = f"已导入／刷新 {len(imported)} 个仓库（不受高星门槛限制）"
+        if problems:
+            message += "；" + "；".join(problems)
+        self.store.event(now, "WARNING" if problems else "INFO", message)
+        return {"message": message, "repo_id": imported[0] if imported else None}
 
     def rescore(self, config, now):
         for row in self.store.rows("SELECT * FROM repos"):
@@ -151,14 +220,14 @@ class Service:
         due = now.weekday() > schedule["weekly_day"] or (now.weekday() == schedule["weekly_day"] and now.hour >= schedule["weekly_hour"])
         if due:
             week = self.digest(config, now)
-            if config["ai"]["enabled"]:
+            if config["ai"]["enabled"] and config["ai"]["auto_analyze"]:
                 for selected in self.store.rows("SELECT repo_id FROM selections WHERE week=? ORDER BY position", (week,)):
                     row = self.store.one("SELECT * FROM repos WHERE id=?", (selected["repo_id"],))
-                    if not self.store.one("SELECT id FROM ai_jobs WHERE repo_id=?", (row["id"],)):
+                    if not self.store.one("SELECT id FROM ai_jobs WHERE repo_id=? AND kind='analysis'", (row["id"],)):
                         try:
-                            ai.generate(self.paths, self.store, config, row, now)
+                            ai.generate(self.paths, self.store, config, row, now, kind="analysis")
                         except (RuntimeError, ValueError) as exc:
-                            self.store.event(now, "WARNING", f"自动教程：{exc}")
+                            self.store.event(now, "WARNING", f"自动初始分析：{exc}")
                 export_digest(self.paths, self.store, week)
             # 没有入选项目时静默，只在应用内记录，不发送空周报。
             if self.store.one("SELECT repo_id FROM selections WHERE week=?", (week,)) and config["email"]["enabled"]:

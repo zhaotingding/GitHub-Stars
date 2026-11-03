@@ -53,8 +53,10 @@ def rank(row, config, now, baseline=None):
 def choose(rows, config, now, recent_ids):
     cutoff = (now - timedelta(days=7)).isoformat()
     eligible = [r for r in rows if r["score"] >= config["digest"]["min_score"] and r["seen_at"] >= cutoff
-                and r["id"] not in recent_ids and len(r["readme"].strip()) >= 300 and r["feedback"] != "dismissed"]
-    eligible.sort(key=lambda r: (r["feedback"] == "saved", r["score"]), reverse=True)
+                and r["id"] not in recent_ids and len(r["readme"].strip()) >= 300 and r["feedback"] != "dismissed"
+                and r.get("study_state") != "studied"]
+    priority = {"focus": 3, "studying": 2, "saved": 1}
+    eligible.sort(key=lambda r: (priority.get(r.get("study_state"), int(r["feedback"] == "saved")), r["score"]), reverse=True)
     maximum = config["digest"]["max_projects"]
     hot_limit = config["digest"]["hot_slots"]
     selected, owners = [], set()

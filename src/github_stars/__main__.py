@@ -32,7 +32,8 @@ def main(argv=None):
     parser.add_argument("--root", type=Path, default=Path(os.getenv("GITHUB_STARS_ROOT", Path(__file__).resolve().parents[2])))
     parser.add_argument("--version", action="version", version=__version__)
     parser.add_argument("--check-environment", action="store_true")
-    parser.add_argument("command", nargs="?", choices=["gui", "scan", "digest", "tick", "status"], default="gui")
+    parser.add_argument("--url", help="导入仓库链接或包含 Markdown 链接的文字")
+    parser.add_argument("command", nargs="?", choices=["gui", "scan", "digest", "tick", "status", "import"], default="gui")
     args = parser.parse_args(argv)
     if args.check_environment:
         result = environment()
@@ -51,17 +52,19 @@ def main(argv=None):
                           "latest_digest": service.store.one("SELECT * FROM digests ORDER BY week DESC LIMIT 1")}
                 print(json.dumps(result, ensure_ascii=False, indent=2))
             else:
-                print(service.run(args.command))
+                if args.command == "import" and not args.url:
+                    raise ValueError("import 需要 --url 指定仓库链接")
+                print(service.run(args.command, text=args.url))
         return 0
     except Exception as exc:
         message = str(exc) if isinstance(exc, (ValueError, RuntimeError)) else f"{type(exc).__name__}，请检查配置和运行记录"
         if args.command == "gui":
-            import tkinter as tk
-            from tkinter import messagebox
-            window = tk.Tk()
-            window.withdraw()
-            messagebox.showerror("GitHub Stars++ · 启动失败", message)
-            window.destroy()
+            from .theme import start_error_dialog
+            try:
+                selected_theme = Paths(args.root).load()["appearance"]["theme"]
+            except Exception:
+                selected_theme = "dark"
+            start_error_dialog(message, selected_theme)
         elif sys.stderr:
             print(message, file=sys.stderr)
         return 1

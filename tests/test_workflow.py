@@ -202,12 +202,12 @@ def test_real_sdk_structured_request_cache_and_usage(service):
         requests.append(json.loads(request.content))
         return httpx.Response(200, json=response_payload())
     with sdk_client(handler) as client:
-        result = ai.generate(service.paths, service.store, ai_config(service), row, NOW, client=client)
-        ai.generate(service.paths, service.store, ai_config(service), row, NOW, client=client)
+        result = ai.generate(service.paths, service.store, ai_config(service), row, NOW, client=client, kind="legacy")
+        ai.generate(service.paths, service.store, ai_config(service), row, NOW, client=client, kind="legacy")
     assert result["summary"].startswith("中文")
     assert len(requests) == 1
     assert requests[0]["text"]["format"]["type"] == "json_schema"
-    assert requests[0]["max_output_tokens"] == 5000
+    assert requests[0]["max_output_tokens"] == 4000
     job = service.store.one("SELECT * FROM ai_jobs")
     assert job["status"] == "completed" and job["input_tokens"] == 120 and job["output_tokens"] == 80
     assert "_sha" in json.loads(job["result"])
@@ -221,9 +221,9 @@ def test_network_timeout_blocks_auto_resubmit(service):
         raise httpx.ReadTimeout("network lost", request=request)
     with sdk_client(handler) as client:
         with pytest.raises(RuntimeError, match="未知"):
-            ai.generate(service.paths, service.store, ai_config(service), row, NOW, client=client)
+            ai.generate(service.paths, service.store, ai_config(service), row, NOW, client=client, kind="legacy")
         with pytest.raises(ValueError, match="不会重复"):
-            ai.generate(service.paths, service.store, ai_config(service), row, NOW, client=client)
+            ai.generate(service.paths, service.store, ai_config(service), row, NOW, client=client, kind="legacy")
     assert len(requests) == 1
     assert service.store.one("SELECT status FROM ai_jobs")["status"] == "unknown"
 
@@ -233,7 +233,7 @@ def test_invalid_response_keeps_usage_and_raw_result(service, status, text):
     row = seed(service)
     with sdk_client(lambda req: httpx.Response(200, json=response_payload(status, text))) as client:
         with pytest.raises(RuntimeError):
-            ai.generate(service.paths, service.store, ai_config(service), row, NOW, client=client)
+            ai.generate(service.paths, service.store, ai_config(service), row, NOW, client=client, kind="legacy")
     job = service.store.one("SELECT * FROM ai_jobs")
     assert job["status"] == "invalid" and job["response_id"] == "resp_test"
     assert job["input_tokens"] == 120 and "output" in json.loads(job["result"])
@@ -245,9 +245,9 @@ def test_weekly_ai_cap_counts_failed_requests(service):
     config["ai"]["max_calls_per_week"] = 1
     with sdk_client(lambda req: httpx.Response(401, json={"error": {"message": "bad key"}})) as client:
         with pytest.raises(RuntimeError):
-            ai.generate(service.paths, service.store, config, row, NOW, client=client)
+            ai.generate(service.paths, service.store, config, row, NOW, client=client, kind="legacy")
         with pytest.raises(ValueError, match="每周 AI"):
-            ai.generate(service.paths, service.store, config, row, NOW, retry=True, client=client)
+            ai.generate(service.paths, service.store, config, row, NOW, retry=True, client=client, kind="legacy")
 
 
 def test_recover_received_response_uses_local_copy_without_new_request(service):
@@ -255,7 +255,7 @@ def test_recover_received_response_uses_local_copy_without_new_request(service):
     service.store.execute("""INSERT INTO ai_jobs(repo_id,week,created,status,model,response_id,result,evidence)
                          VALUES (1,'2026-W45',?,'received','original-model','resp_test',?,?)""",
                          (NOW.isoformat(), json.dumps(response_payload()), json.dumps({"sha": "original-sha", "captured": "then"})))
-    result = ai.recover(service.paths, service.store, row["id"], NOW)
+    result = ai.recover(service.paths, service.store, row["id"], NOW, kind="legacy")
     assert result["_sha"] == "original-sha"
     assert service.store.one("SELECT count(*) n FROM ai_jobs")["n"] == 1
     assert service.store.one("SELECT status FROM ai_jobs")["status"] == "completed"
@@ -270,7 +270,7 @@ def test_recover_known_id_only_gets_original_response(service):
         requests.append(request)
         return httpx.Response(200, json=response_payload())
     with sdk_client(handler) as client:
-        ai.recover(service.paths, service.store, row["id"], NOW, client=client)
+        ai.recover(service.paths, service.store, row["id"], NOW, client=client, kind="legacy")
     assert len(requests) == 1 and requests[0].method == "GET"
     assert requests[0].url.path == "/v1/responses/resp_test"
     assert service.store.one("SELECT input_tokens FROM ai_jobs")["input_tokens"] == 120
@@ -288,7 +288,7 @@ def test_upgrade_reuses_config_database_and_user_feedback(service):
 
 
 def test_higher_schema_is_not_downgraded(service):
-    service.store.execute("PRAGMA user_version=2")
+    service.store.execute("PRAGMA user_version=3")
     with pytest.raises(RuntimeError, match="更新版本"):
         Service(service.paths)
 

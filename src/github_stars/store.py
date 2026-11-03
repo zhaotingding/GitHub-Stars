@@ -26,8 +26,9 @@ CREATE TABLE IF NOT EXISTS ai_jobs (
  input_tokens INTEGER, output_tokens INTEGER, evidence TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS state (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS events (id INTEGER PRIMARY KEY, created TEXT NOT NULL, level TEXT NOT NULL, message TEXT NOT NULL);
-PRAGMA user_version=1;
 """
+
+STUDY_STATES = {"pending": "待研究", "saved": "收藏", "studied": "已研究", "focus": "重点", "studying": "正在研究"}
 
 
 class Store:
@@ -35,9 +36,23 @@ class Store:
         self.path = path
         with self.connect() as db:
             version = db.execute("PRAGMA user_version").fetchone()[0]
-            if version > 1:
+            if version > 2:
                 raise RuntimeError("此数据库来自更新版本，请使用匹配的程序")
             db.executescript(SCHEMA)
+            if version < 2:
+                db.execute("BEGIN IMMEDIATE")  # 迁移与后台写入互斥，失败回滚不留半份结构。
+                repo_columns = {r[1] for r in db.execute("PRAGMA table_info(repos)")}
+                if "study_state" not in repo_columns:
+                    db.execute("ALTER TABLE repos ADD COLUMN study_state TEXT NOT NULL DEFAULT 'pending'")
+                    db.execute("UPDATE repos SET study_state='saved' WHERE feedback='saved'")
+                if "manual" not in repo_columns:
+                    db.execute("ALTER TABLE repos ADD COLUMN manual INTEGER NOT NULL DEFAULT 0")
+                columns = {r[1] for r in db.execute("PRAGMA table_info(ai_jobs)")}
+                for name, definition in (("kind", "TEXT NOT NULL DEFAULT 'legacy'"), ("instructions", "TEXT NOT NULL DEFAULT ''"),
+                                         ("settings", "TEXT NOT NULL DEFAULT '{}'"), ("actual_model", "TEXT"), ("actual_tier", "TEXT")):
+                    if name not in columns:
+                        db.execute(f"ALTER TABLE ai_jobs ADD COLUMN {name} {definition}")
+                db.execute("PRAGMA user_version=2")
 
     @contextmanager
     def connect(self):

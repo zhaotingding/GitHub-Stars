@@ -4,23 +4,22 @@ import html
 import json
 
 
-def project_text(row, tutorial=None):
+def project_text(row, analysis=None):
     repo = json.loads(row["metadata"])
     reasons = json.loads(row["reasons"])
     parts = [f"## {row['name']}", f"项目地址：https://github.com/{row['name']}",
              f"原始简介：{repo.get('description') or '作者未填写简介'}",
-             f"推荐分：{row['score']} / 100 · {'研究方向' if row['bucket'] == 'research' else 'AI 热点'}",
-             "为什么进入候选：\n" + "\n".join(f"- {reason}" for reason in reasons),
-             f"语言：{repo.get('language') or '未声明'}；许可证：{(repo.get('license') or {}).get('spdx_id', '未声明，使用前需核对')}"]
-    if tutorial:
-        for title, key in (("一分钟理解", "summary"), ("与你的研究有什么关系", "relevance"),
-                           ("入门教程（AI 根据资料生成，未实际执行）", "tutorial"), ("限制与待核实", "limitations")):
-            parts.append(f"### {title}\n{tutorial[key]}")
-        parts.append(f"生成依据：README 快照 {tutorial.get('_sha', '未知')}，采集于 {tutorial.get('_captured', '未知')}")
+             ]
+    if analysis:
+        for title, key in (("这个项目做什么", "summary"), ("哪些地方值得你用", "relevance"),
+                           ("如何开始使用", "usage"), ("相关项目与选择", "related_projects"), ("限制与待核实", "limitations")):
+            parts.append(f"### {title}\n{analysis.get(key, '旧版材料未包含此节')}")
+        parts.append(f"分析依据：README 快照 {analysis.get('_sha', '未知')}，采集于 {analysis.get('_captured', '未知')}")
     else:
-        parts.append("### 快速阅读路线（未调用 AI）\n1. 阅读 README 的介绍、示例和安装章节，确认具体解决什么问题。\n"
-                     "2. 核对许可证、最近提交、依赖和算力要求。\n3. 优先尝试官方最小示例，再考虑接入研究；本程序未执行仓库代码。\n"
-                     "配置 OpenAI 后可生成中文解读、具体步骤、预期结果及排障教程。")
+        parts.append("### 初始分析待生成\n启用 AI 后，点击“初始分析”了解用途、值得使用的地方、入门方法和相关项目。\n"
+                     "觉得值得深入时，再主动生成独立的可视化 HTML 教程。教程模型、预算和提示词可单独配置。")
+    parts.extend([f"### 采集信息\n语言：{repo.get('language') or '未声明'}；许可证：{(repo.get('license') or {}).get('spdx_id', '未声明，使用前核对')}",
+                  f"匹配分：{row['score']} / 100 · {'研究方向' if row['bucket'] == 'research' else 'AI 热点'}\n" + "\n".join(reasons)])
     if row.get("readme_url"):
         parts.append(f"来源：{row['readme_url']}\nREADME 采集时间：{row.get('readme_at') or '未知'}")
     return "\n\n".join(parts)
@@ -34,7 +33,7 @@ def digest_text(store, week):
     parts = [f"# GitHub Stars++ · {week} 周报", f"生成于 {digest['created']}", digest["note"],
              "每天观察，每周只读几项。以下是个性化候选，不是全站排名，也不是项目质量认证。"]
     for item in rows:
-        job = store.one("SELECT result FROM ai_jobs WHERE repo_id=? AND status='completed' ORDER BY id DESC LIMIT 1", (item["repo_id"],))
+        job = store.one("SELECT result FROM ai_jobs WHERE repo_id=? AND kind='analysis' AND status='completed' ORDER BY id DESC LIMIT 1", (item["repo_id"],))
         parts.append(project_text(json.loads(item["snapshot"]), json.loads(job["result"]) if job else None))
     if not rows:
         parts.append("本周没有达到阈值且未推荐过的项目。继续观察，不为填满数量降低门槛。")
