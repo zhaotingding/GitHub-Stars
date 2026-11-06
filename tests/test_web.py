@@ -4,6 +4,7 @@ import os
 import threading
 import time
 import uuid
+from datetime import timedelta
 
 import httpx
 import pytest
@@ -69,7 +70,7 @@ def test_http_assets_utf8_and_loopback_session(browser):
     server, client = browser
     assert server.http.server_address[0] == '127.0.0.1'
     response = client.get('/')
-    assert '项目雷达' in response.text and '设置' in response.text
+    assert '项目库' in response.text and '设置' in response.text
     assert 'HttpOnly' in response.headers['set-cookie'] and 'SameSite=Strict' in response.headers['set-cookie']
     assert "frame-ancestors 'none'" in response.headers['content-security-policy']
     for name, marker in (('/app.js', 'textContent'), ('/app.css', '@media')):
@@ -287,6 +288,57 @@ def test_existing_tutorial_download_never_creates_generation(browser):
     assert response.status_code == 200, response.text
     assert 'attachment;' in response.headers['content-disposition'] and '<!doctype html>' in response.text.lower()
     assert app.store.one('SELECT count(*) n FROM ai_jobs')['n'] == before
+
+
+def test_display_state_and_older_completed_tutorial_remain_readable_without_generation(browser, monkeypatch):
+    server, client = browser
+    app = server.http.app
+    server.stop_event.set()  # 只验证配置开关展示，不执行自动检查。
+    monkeypatch.setattr(Paths, 'secret', lambda *_args, **_kwargs: '')
+    model_calls = []
+
+    def forbidden_model(*args, **kwargs):
+        model_calls.append((args, kwargs))
+        raise AssertionError('读取展示状态和已有教程不应调用模型')
+
+    monkeypatch.setattr('github_stars.ai.generate', forbidden_model)
+    monkeypatch.setattr(app.service, 'research_client_factory', forbidden_model)
+    assert finished(server, submit(client, 'import', {'text': 'https://github.com/owner1/project1'}))['state'] == 'done'
+    initial = client.get('/api/project?id=1').json()
+    assert initial['tutorial_available'] is False and initial['jobs'] == []
+    state = client.get('/api/state').json()
+    assert state['ai_enabled'] is False and state['schedule_enabled'] is False
+    current = client.get('/api/config').json()
+    assert state['research_queries'] == current['config']['discovery']['research_queries']
+
+    config = current['config']
+    queries = ['embodied in:name,description,topics', 'topic:robot-learning']
+    config['ai'].update(enabled=True, model='test-unverified-model', auto_analyze=False)
+    config['schedule']['enabled'] = True
+    config['discovery']['research_queries'] = queries
+    response = client.post('/api/settings', json=dict(config=config, revision=current['revision'], secrets={}))
+    assert response.status_code == 200, response.text
+    state = client.get('/api/state').json()
+    assert state['ai_enabled'] is True and state['schedule_enabled'] is True
+    assert state['research_queries'] == queries
+
+    lesson = lesson_fixture()
+    insert = ('INSERT INTO ai_jobs(repo_id,week,created,status,model,result,evidence,kind) '
+              'VALUES(?,?,?,?,?,?,?,?)')
+    app.store.execute(insert, (1, '2026-W45', (NOW-timedelta(days=1)).isoformat(), 'completed',
+                               'test-model', json.dumps(lesson, ensure_ascii=False), '{}', 'tutorial'))
+    for number in range(20):
+        app.store.execute(insert, (1, '2026-W45', (NOW+timedelta(seconds=number)).isoformat(), 'failed',
+                                   'test-model', None, '{}', 'tutorial'))
+    project = client.get('/api/project?id=1').json()
+    assert len(project['jobs']) == 20 and all(job['status'] == 'failed' for job in project['jobs'])
+    assert project['tutorial_available'] is True
+    response = client.get('/api/tutorial?id=1')
+    assert response.status_code == 200, response.text
+    assert 'attachment;' in response.headers['content-disposition'] and lesson['title'] in response.text
+    assert app.store.one('SELECT count(*) n FROM ai_jobs')['n'] == 21
+    assert not app.store.rows('SELECT * FROM research_steps')
+    assert model_calls == []
 
 
 def test_standalone_web_honors_enabled_schedule_without_exposing_tick(browser, monkeypatch):

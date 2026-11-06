@@ -85,11 +85,14 @@ class WebApplication:
             return self.active is not None
 
     def state(self):
+        config = self.paths.load()
         rows = self.store.rows('SELECT id,name,metadata,score,study_state FROM repos ORDER BY score DESC LIMIT 300')
         for row in rows:
             metadata = json.loads(row.pop('metadata'))
             row.update(description=metadata.get('description') or '', stars=metadata.get('stargazers_count', 0))
-        return dict(version=__version__, theme=self.paths.load()['appearance']['theme'], busy=self.busy, projects=rows, study_states=STUDY_STATES,
+        return dict(version=__version__, theme=config['appearance']['theme'], busy=self.busy, projects=rows, study_states=STUDY_STATES,
+                    ai_enabled=config['ai']['enabled'], schedule_enabled=config['schedule']['enabled'],
+                    research_queries=config['discovery']['research_queries'],
                     project_count=self.store.one('SELECT count(*) n FROM repos')['n'],
                     digests=self.store.rows('SELECT week,created,note,mail_state FROM digests ORDER BY week DESC LIMIT 30'),
                     research=self.store.rows('SELECT id,question,state FROM research_jobs WHERE expires>? '
@@ -142,6 +145,8 @@ class WebApplication:
         row['reasons'] = json.loads(row['reasons'])
         row['jobs'] = self.store.rows('SELECT id,kind,status,error,created,actual_model,input_tokens,output_tokens '
                                       'FROM ai_jobs WHERE repo_id=? ORDER BY id DESC LIMIT 20', (repo_id,))
+        row['tutorial_available'] = bool(self.store.one(
+            "SELECT id FROM ai_jobs WHERE repo_id=? AND kind='tutorial' AND status='completed' LIMIT 1", (repo_id,)))
         analysis = self.store.one("SELECT result FROM ai_jobs WHERE repo_id=? AND kind='analysis' AND status='completed' "
                                   'ORDER BY id DESC LIMIT 1', (repo_id,))
         row['analysis'] = json.loads(analysis['result']) if analysis else None

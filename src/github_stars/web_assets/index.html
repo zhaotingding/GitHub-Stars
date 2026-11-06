@@ -1,34 +1,177 @@
 <!doctype html>
 <html lang="zh-CN">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>GitHub Stars++ · 网页端</title><link rel="stylesheet" href="/app.css"><script src="/app.js" defer></script></head>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="收集开源项目，阅读资料，带着问题慢慢研究。">
+  <title>GitHub Stars++ · 项目研究工作台</title>
+  <link rel="stylesheet" href="/app.css">
+  <script src="/app.js" defer></script>
+</head>
 <body>
-<aside class="sidebar"><div class="brand">✦ GitHub Stars++</div><div class="muted small">个人开源研究工作台</div>
-<nav id="navigation">
-<button data-page="radar" class="active">项目雷达 <span>01</span></button>
-<button data-page="research">项目研究 <span>02</span></button>
-<button data-page="weekly">每周精选 <span>03</span></button>
-<button data-page="settings">设置 <span>04</span></button>
-<button data-page="logs">运行记录 <span>05</span></button>
-</nav><div class="sidebar-bottom"><span class="dot"></span> 本机网页服务<br><span id="version" class="muted small"></span></div></aside>
-<main>
-<header><div><div class="eyebrow">YOUR RESEARCH, CONNECTED</div><h1 id="page-title">项目雷达</h1></div>
-<div class="header-actions"><span id="summary" class="muted"></span><select id="theme-choice" aria-label="主题"><option value="dark">深色</option><option value="light">浅色</option></select><button id="refresh">刷新</button><button id="stop-server">停止服务</button></div></header>
-<div id="notice" role="status" aria-live="polite">正在连接本机资料库…</div>
-<section id="page-radar" class="page">
-<div class="toolbar"><button id="scan" class="primary task-button">立即采集</button><input id="import-text" placeholder="粘贴 GitHub 仓库链接" aria-label="GitHub仓库链接"><button id="import" class="task-button">导入项目</button></div>
-<div class="split"><div class="panel"><div class="panel-heading"><h2>已收集项目</h2><input id="search" placeholder="搜索全部项目的名称或简介" aria-label="搜索项目"><p class="muted small">每次展示前300条，可搜索全部已保存资料。</p></div><div id="project-list" class="project-list"></div></div>
-<article class="panel detail" id="project-detail"><div class="empty"><h2>从一个项目开始</h2><p>导入正在学习的仓库，再查看资料、生成教程或提出问题。</p><p class="muted">模型功能需要先在「设置 → API连接」配置。</p></div></article></div>
-</section>
-<section id="page-research" class="page hidden">
-<div class="panel composer"><div class="eyebrow">ASK YOUR COLLECTION</div><h2>带着问题读项目</h2>
-<textarea id="question" rows="3" placeholder="例如：哪些项目能帮助我从传统视觉转向机器人多模态感知？" aria-label="研究问题"></textarea>
-<div class="toolbar"><select id="research-mode" aria-label="研究模式"><option value="standard">标准问答</option><option value="agent">受限 Agent</option></select><select id="research-scope" aria-label="研究范围"><option value="">全部本地项目</option></select><button id="ask" class="primary task-button">开始研究</button></div>
-<div class="toolbar attachments"><label><input type="checkbox" id="allow-images"> 仅本题允许读图</label><input type="file" id="images" accept="image/png" multiple aria-label="选择PNG截图"><span class="muted small">静态PNG，每张最多2MB；标准模式最多一张。</span></div>
-</div><div class="split research-layout"><div class="panel"><h2>研究记录</h2><div id="research-history"></div></div><article class="panel detail"><div id="research-answer" class="empty">选择历史记录，或提交一个新问题。</div><div id="research-controls" class="toolbar"></div><details id="sources-details"><summary>来源与执行记录</summary><div id="research-sources"></div><pre id="source-text"></pre><h3>资料组织与Star观测</h3><pre id="research-organization"></pre><h3>执行记录</h3><pre id="research-trace"></pre></details></article></div>
-</section>
-<section id="page-weekly" class="page hidden"><div class="toolbar"><button id="digest" class="primary task-button">生成本周精选</button><select id="weeks" aria-label="选择周报"></select><button id="view-week">查看周报</button><button id="export-html">导出HTML</button><button id="export-markdown">导出Markdown</button><button id="send-mail" class="task-button">发送周报</button><button id="retry-mail" class="task-button">明确重发</button></div><article class="panel"><pre id="weekly-text">周报需要近期完整采集，资料不足时不会为凑数量降低门槛。</pre></article></section>
-<section id="page-settings" class="page hidden"><div class="toolbar"><p class="muted">配置与桌面端共用。密钥仅用于当前进程，关闭后需要重新提供。</p><button id="reload-settings">重新加载</button><button id="save-settings" class="primary">保存设置</button></div><div class="settings-layout"><nav id="settings-nav" class="panel"></nav><form id="settings-form" class="panel"></form></div></section>
-<section id="page-logs" class="page hidden"><article class="panel"><h2>本机操作</h2><div id="operations"></div></article><article class="panel"><h2>运行与用量</h2><pre id="logs-text"></pre></article></section>
-<footer>资料来自已收集项目。模型解释、作者主张与亲自实测应分别核对。</footer>
-</main></body></html>
+  <aside class="sidebar">
+    <div class="brand"><span class="brand-mark" aria-hidden="true">✦</span> GitHub Stars++</div>
+    <p class="brand-description">把感兴趣的项目，慢慢看明白。</p>
+    <nav id="navigation" aria-label="主要页面">
+      <button data-page="radar" class="active">项目库 <span>01</span></button>
+      <button data-page="research">AI问答 <span>02</span></button>
+      <button data-page="weekly">每周推荐 <span>03</span></button>
+      <button data-page="settings">设置 <span>04</span></button>
+      <button data-page="logs">任务记录 <span>05</span></button>
+    </nav>
+    <div class="sidebar-bottom">
+      <div class="service-status"><span class="dot" aria-hidden="true"></span>在这台电脑上运行<br><span id="version" class="small muted"></span></div>
+      <details class="service-tools">
+        <summary>服务选项</summary>
+        <p class="small muted">停止后，下次可用原快捷方式重新打开。</p>
+        <button id="stop-server" class="quiet-button">停止服务</button>
+      </details>
+    </div>
+  </aside>
+
+  <main>
+    <header class="page-header">
+      <div class="page-heading">
+        <h1 id="page-title">项目库</h1>
+        <p id="page-description">发现感兴趣的项目，先读资料，再决定研究什么。</p>
+      </div>
+      <div class="header-actions">
+        <span id="summary" class="summary-pill muted">正在连接…</span>
+        <label class="sr-only" for="theme-choice">页面外观</label>
+        <select id="theme-choice"><option value="dark">深色</option><option value="light">浅色</option></select>
+        <button id="refresh" class="quiet-button">刷新</button>
+      </div>
+    </header>
+    <div id="notice" role="status" aria-live="polite">正在连接本机资料库…</div>
+
+    <section id="page-radar" class="page" aria-label="项目库">
+      <div class="discovery-actions">
+        <section class="panel action-card">
+          <div class="action-card-heading"><span class="step-mark" aria-hidden="true">01</span><h2>按关键词找新项目</h2></div>
+          <p class="topic-line"><span class="muted">当前关注</span><span id="search-topics">正在读取关键词…</span></p>
+          <div class="toolbar action-card-buttons">
+            <button id="scan" class="primary task-button">查找新项目</button>
+            <button id="edit-keywords">设置关键词</button>
+          </div>
+        </section>
+        <section class="panel action-card">
+          <div class="action-card-heading"><span class="step-mark" aria-hidden="true">02</span><h2>添加指定项目</h2></div>
+          <label class="input-label" for="import-text">已经有想看的 GitHub 项目？粘贴链接。</label>
+          <div class="toolbar import-controls">
+            <input id="import-text" placeholder="https://github.com/作者/项目" autocomplete="off">
+            <button id="import" class="task-button">添加项目</button>
+          </div>
+        </section>
+      </div>
+      <div class="split project-layout">
+        <section class="panel project-library">
+          <div class="panel-heading">
+            <div class="section-title"><h2>已保存的项目</h2><span class="small muted">随时回来继续读</span></div>
+            <label class="input-label" for="search">在已保存的项目中搜索</label>
+            <input id="search" placeholder="输入项目名称或简介中的词" autocomplete="off">
+            <p class="field-help">搜索全部已保存项目，每次最多显示300条。</p>
+          </div>
+          <div id="project-list" class="project-list"></div>
+        </section>
+        <article class="panel detail" id="project-detail">
+          <div class="empty project-empty">
+            <span class="empty-symbol" aria-hidden="true">↗</span>
+            <h2>选一个项目，开始阅读</h2>
+            <p>点击左侧项目，查看简介和原始资料。</p>
+            <p class="small">可以先读一读，也可以围绕它提一个问题。</p>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section id="page-research" class="page hidden" aria-label="AI问答">
+      <div class="research-layout">
+        <aside class="panel research-history-panel">
+          <h2>以前问过的问题</h2>
+          <p class="field-help">点击重看回答，不会重新生成。</p>
+          <div id="research-history"></div>
+        </aside>
+        <div class="research-main">
+          <section class="panel composer">
+            <h2>先选择项目，再问一个具体问题</h2>
+            <p class="field-help">围绕已保存的资料回答，重要结论可以打开引用核对。</p>
+            <label class="input-label" for="question">你想了解什么？</label>
+            <textarea id="question" rows="2" placeholder="例如：这个项目的输入和输出是什么？第一次尝试需要哪些条件？"></textarea>
+            <div class="question-examples" aria-label="试试这样问">
+              <span class="small muted">试试这样问</span>
+              <button class="question-example" data-question="只依据已保存资料，用三点说明这个项目的输入、输出和主要用途，每点给引用。">看懂这个项目</button>
+              <button class="question-example" data-question="第一次尝试这个项目，需要先核对哪些软件、数据和硬件条件？资料没写的请明确说明。">核对入门条件</button>
+              <button class="question-example" data-question="这个项目与我的研究方向有什么关系？给出两点有来源支持的联系，不确定的地方请说明。">联系我的研究方向</button>
+            </div>
+            <div class="research-submit-row">
+              <div class="control-field"><label class="input-label" for="research-scope">围绕哪个项目</label><select id="research-scope"><option value="">全部本地项目</option></select></div>
+              <div class="control-field"><label class="input-label" for="research-mode">回答方式</label><select id="research-mode"><option value="standard">直接回答</option><option value="agent">补查资料后回答</option></select></div>
+              <button id="ask" class="primary task-button">发送问题</button>
+            </div>
+            <details class="attachment-details">
+              <summary>添加截图（可选）</summary>
+              <div class="attachments">
+                <label class="checkbox-label" for="allow-images"><input type="checkbox" id="allow-images">仅本题允许读图</label>
+                <label class="input-label" for="images">选择PNG截图</label>
+                <input type="file" id="images" accept="image/png" multiple>
+                <p class="field-help">静态PNG，每张最多2MB；直接回答最多一张。提交后，下题需重新选择并允许。</p>
+              </div>
+            </details>
+          </section>
+          <article class="panel answer-panel">
+            <div id="research-answer" class="empty">从左侧重看已有回答，或在上方发送一个新问题。</div>
+            <div id="research-controls" class="toolbar"></div>
+            <details id="sources-details" class="source-details">
+              <summary>查看引用与处理过程</summary>
+              <div id="research-sources" class="source-list"></div>
+              <pre id="source-text"></pre>
+              <h3>处理过程</h3>
+              <pre id="research-trace"></pre>
+              <details class="advanced-details">
+                <summary>高级：资料整理与Star记录</summary>
+                <pre id="research-organization"></pre>
+              </details>
+            </details>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="page-weekly" class="page hidden" aria-label="每周推荐">
+      <section class="panel weekly-toolbar">
+        <div class="weekly-heading"><div><h2>每周挑几项，留时间读懂</h2><p class="field-help">从已保存项目中整理推荐，也可以回看以前的清单。</p></div><button id="digest" class="primary task-button">整理本周推荐</button></div>
+        <div class="weekly-controls">
+          <div class="control-field"><label class="input-label" for="weeks">选择一周</label><select id="weeks"></select></div>
+          <button id="view-week">查看周报</button>
+          <div class="export-actions"><button id="export-html">导出HTML</button><button id="export-markdown">导出Markdown</button></div>
+        </div>
+      </section>
+      <article class="panel weekly-report"><div id="weekly-text" class="markdown-body"><p class="muted">选择已有周报，或先查找新项目，再整理本周推荐。</p></div></article>
+      <details class="panel optional-actions">
+        <summary>邮件发送（可选）</summary>
+        <p class="field-help">需要先在设置中启用邮件。重发前，请检查原状态和收件箱。</p>
+        <div class="toolbar"><button id="send-mail" class="task-button">发送周报</button><button id="retry-mail" class="task-button">明确重发</button></div>
+      </details>
+    </section>
+
+    <section id="page-settings" class="page hidden" aria-label="设置">
+      <div class="panel settings-savebar">
+        <div><h2>按自己的节奏设置</h2><p class="field-help">修改后记得保存。密钥只用于当前服务进程。</p></div>
+        <div class="toolbar"><button id="reload-settings">重新加载</button><button id="save-settings" class="primary">保存设置</button></div>
+      </div>
+      <div class="settings-layout"><nav id="settings-nav" class="panel" aria-label="设置分类"></nav><form id="settings-form" class="panel"></form></div>
+    </section>
+
+    <section id="page-logs" class="page hidden" aria-label="任务记录">
+      <section id="usage-summary" class="usage-summary" aria-label="用量概览"></section>
+      <div class="logs-layout">
+        <article class="panel"><h2>最近的任务</h2><p class="field-help">先看任务的具体结果，再决定下一步。</p><div id="operations"></div></article>
+        <article class="panel"><h2>最近的消息</h2><div id="recent-events"><p class="muted">正在读取运行消息…</p></div></article>
+      </div>
+      <details class="panel technical-records"><summary>查看详细记录</summary><p class="field-help">需要排查错误时，可在这里查看完整状态与用量。</p><pre id="logs-text"></pre></details>
+    </section>
+
+    <footer>资料来自已保存的项目。重要结论，请打开引用核对。</footer>
+  </main>
+</body>
+</html>
