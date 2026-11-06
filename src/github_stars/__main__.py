@@ -33,7 +33,17 @@ def main(argv=None):
     parser.add_argument("--version", action="version", version=__version__)
     parser.add_argument("--check-environment", action="store_true")
     parser.add_argument("--url", help="导入仓库链接或包含 Markdown 链接的文字")
-    parser.add_argument("command", nargs="?", choices=["gui", "scan", "digest", "tick", "status", "import"], default="gui")
+    parser.add_argument('--question', help='项目研究问题')
+    parser.add_argument('--job-id', help='已保存的研究任务编号')
+    parser.add_argument('--mode', choices=['standard', 'agent'], default='standard')
+    parser.add_argument('--repo-id', type=int, action='append', help='限定已保存项目编号，可重复')
+    parser.add_argument('--allow-images', action='store_true', help='明确允许本题附件发送图片模型')
+    parser.add_argument('--image', action='append', default=[], help='本题本地PNG附件，可重复')
+    parser.add_argument('--rating', choices=['useful', 'irrelevant', 'clear'], default='useful')
+    parser.add_argument('--unsave', action='store_true', help='取消收藏')
+    research_commands = ['research', 'research-status', 'research-resume', 'research-continue',
+                         'research-cancel', 'research-bookmark', 'research-feedback']
+    parser.add_argument("command", nargs="?", choices=["gui", "scan", "digest", "tick", "status", "import"]+research_commands, default="gui")
     args = parser.parse_args(argv)
     if args.check_environment:
         result = environment()
@@ -46,7 +56,23 @@ def main(argv=None):
             App(paths).mainloop()
         else:
             service = Service(paths)
-            if args.command == "status":
+            if args.command in research_commands:
+                if args.command == 'research':
+                    if not args.question:
+                        raise ValueError('research需要--question')
+                    result = service.run('research', question=args.question, mode=args.mode, repo_ids=args.repo_id,
+                                         allow_images=args.allow_images, image_paths=args.image, job_id=args.job_id)
+                else:
+                    if not args.job_id:
+                        raise ValueError('研究控制操作需要--job-id')
+                    options = {'job_id': args.job_id}
+                    if args.command == 'research-bookmark':
+                        options['saved'] = not args.unsave
+                    if args.command == 'research-feedback':
+                        options['rating'] = args.rating
+                    result = service.run(args.command.replace('-', '_'), **options)
+                print(json.dumps(result, ensure_ascii=False, indent=2))
+            elif args.command == "status":
                 result = {"root": str(paths.root), "projects": service.store.one("SELECT count(*) n FROM repos")["n"],
                           "latest_scan": service.store.one("SELECT * FROM scans ORDER BY id DESC LIMIT 1"),
                           "latest_digest": service.store.one("SELECT * FROM digests ORDER BY week DESC LIMIT 1")}

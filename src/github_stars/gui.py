@@ -11,6 +11,7 @@ from tkinter import ttk
 
 from . import __version__
 from .reports import digest_text, export_digest, project_text
+from .research_ui import ResearchPanel
 from .service import Service
 from .store import STUDY_STATES
 from .theme import apply_theme, themed_dialog
@@ -56,9 +57,11 @@ class App(tk.Tk):
         self.tabs = ttk.Notebook(self)
         self.radar = ttk.Frame(self.tabs, padding=16)
         self.weekly = ttk.Frame(self.tabs, padding=16)
+        self.research = ResearchPanel(self)
         self.settings = ttk.Frame(self.tabs, padding=16)
         self.logs = ttk.Frame(self.tabs, padding=16)
-        for widget, name in ((self.radar, "项目雷达"), (self.weekly, "每周精选"), (self.settings, "偏好与连接"), (self.logs, "运行与用量")):
+        for widget, name in ((self.radar, "项目雷达"), (self.weekly, "每周精选"), (self.research, "项目研究"),
+                             (self.settings, "偏好与连接"), (self.logs, "运行与用量")):
             self.tabs.add(widget, text=name)
         self.status = tk.StringVar(value="准备就绪。首次使用请采集项目，再查看入选理由。")
         ttk.Label(self, textvariable=self.status, wraplength=1200).pack(side="bottom", fill="x", padx=28, pady=12)
@@ -315,6 +318,25 @@ class App(tk.Tk):
             "定时检查": [("schedule", "enabled", "启用自动检查"), ("schedule", "timezone", "时区"), ("schedule", "daily_hour", "每日采集小时（0–23）"), ("schedule", "weekly_day", "周报星期（0=周一，4=周五）"), ("schedule", "weekly_hour", "周报小时（0–23）")],
             "初始分析": [("ai", "enabled", "启用模型 API"), ("ai", "credential_source", "凭据来源"), ("ai", "auto_analyze", "打开项目时自动做首次短分析"), ("ai", "model", "初始分析模型 ID"), ("ai", "service_tier", "服务等级"), ("ai", "max_calls_per_week", "每周最多初始分析请求"), ("ai", "max_output_tokens", "初始分析输出 Token 上限"), ("ai", "readme_chars", "初始分析 README 字符上限"), ("ai", "timeout_seconds", "等待超时（秒）")],
             "深入教程": [("tutorial", "model", "教程模型 ID（可独立选低成本模型）"), ("tutorial", "service_tier", "教程服务等级"), ("tutorial", "max_calls_per_week", "每周最多教程请求"), ("tutorial", "max_output_tokens", "教程输出 Token 上限"), ("tutorial", "readme_chars", "教程 README 字符上限"), ("tutorial", "timeout_seconds", "教程等待超时（秒）")],
+            "项目研究": [("research", "model", "研究模型 ID（留空沿用初始分析模型）"),
+                     ("research", "image_model", "截图解读模型 ID（需明确配置）"),
+                     ("research", "image_credential_source", "图片凭据来源"),
+                     ("research", "service_tier", "研究服务等级"),
+                     ("research", "max_calls", "每题最多模型调用（含图片）"),
+                     ("research", "max_tools", "每题最多工具动作"),
+                     ("research", "max_images", "每题最多 PNG 截图"),
+                     ("research", "max_calls_per_week", "每周最多研究请求（含图片）"),
+                     ("research", "max_output_tokens", "每次输出 Token 上限"),
+                     ("research", "max_input_chars", "每次输入字符上限"),
+                     ("research", "timeout_seconds", "本题绝对时限（秒）"),
+                     ("research", "history_days", "README / Star 观测回看天数"),
+                     ("research", "max_cost_cny", "每题估算费用上限（人民币）"),
+                     ("research", "input_cny_per_million", "研究输入费率（人民币 / 百万 Token）"),
+                     ("research", "output_cny_per_million", "研究输出费率（人民币 / 百万 Token）"),
+                     ("research", "image_input_cny_per_million", "图片模型输入费率（人民币 / 百万 Token）"),
+                     ("research", "image_output_cny_per_million", "图片模型输出费率（人民币 / 百万 Token）"),
+                     ("research", "interests", "关注主题（每行一个，可留空）"),
+                     ("research", "exclude_terms", "降低优先级的词（每行一个，可留空）")],
             "提示词": [("ai", "prompt", "初始分析提示词"), ("tutorial", "prompt", "深入教程提示词")],
             "邮件推送": [("email", "enabled", "启用每周邮件"), ("email", "host", "SMTP 服务器"), ("email", "port", "SMTP 端口"), ("email", "security", "加密方式 ssl / starttls"), ("email", "username", "SMTP 登录用户名"), ("email", "sender", "发件邮箱"), ("email", "recipient", "收件邮箱")],
         }
@@ -344,7 +366,9 @@ class App(tk.Tk):
                     widget.insert("1.0", "\n".join(value) if isinstance(value, list) else value)
                 else:
                     variable = tk.StringVar(value=str(value))
-                    choices = {"credential_source": ["local", "msgx", "autogpu"], "service_tier": ["default", "flex"]}
+                    choices = {"credential_source": ["local", "msgx", "autogpu"],
+                               "image_credential_source": ["local", "msgx", "autogpu"],
+                               "service_tier": ["default", "flex"]}
                     widget = ttk.Combobox(page, textvariable=variable, state="readonly", values=choices[key]) if key in choices else ttk.Entry(page, textvariable=variable, width=55)
                 widget.grid(row=index, column=1, sticky="ew", pady=8)
                 self.forms[(section, key)] = (variable, widget, type(value))
@@ -361,6 +385,8 @@ class App(tk.Tk):
                 ttk.Label(page, text="凭据来源：local = 本项目／环境变量；msgx = 消息萃取已存 OpenAI；autogpu = AutoGPU 已存 OpenAI。\n仅在请求时读取所选凭据，不复制密钥。Flex 较慢但成本更低，不自动改用更贵等级。\n自动短分析在打开项目或准备周报时触发，受独立周次数上限约束。", wraplength=800).grid(row=index, column=0, columnspan=2, sticky="w", pady=20)
             if title == "深入教程":
                 ttk.Label(page, text="教程只由你主动生成，每次生成创建新请求；查看已有教程不调用 API。\n默认较低成本 GPT-6 Luna + Flex，较大输出预算用于概念、实践、配置和 PR 路线。\n次数与 Token 限制不是金额预算；生成步骤尚未经真实运行。", wraplength=800).grid(row=index, column=0, columnspan=2, sticky="w", pady=20)
+            if title == "项目研究":
+                ttk.Label(page, text="研究只由你主动提交；使用本地缓存快照，不自动采集 GitHub。\n文本沿用初始分析凭据；图片凭据可单独选择。每题都需明确允许读图。\n费率 0 代表未知，不会新增收费请求；金额仅为本地估算，上限同时受次数、工具与时限约束。\n恢复只取回原响应；后续新请求须明确继续，继续不重置原时限或预算。\n历史问题保留 7 天；收藏只保留答案与来源位置。关注词与反馈仅影响后续本地排序。", wraplength=800).grid(row=index, column=0, columnspan=2, sticky="w", pady=20)
         ttk.Button(self.settings, text="保存设置", style="Accent.TButton", command=self.save_settings).pack(anchor="e", pady=(12, 0))
 
     def save_settings(self):
@@ -439,14 +465,25 @@ class App(tk.Tk):
         text = "# AI 请求与实际用量\n\n未返回用量显示未知，不按免费计算。每周上限统计所有已开始的请求。\n\n"
         for job in jobs:
             text += f"任务 {job['id']} · {job['kind']} · {job['status']} · {job['actual_model'] or job['model']} / {job['actual_tier'] or '档位未返回'} · 输入 {job['input_tokens'] if job['input_tokens'] is not None else '未知'} / 输出 {job['output_tokens'] if job['output_tokens'] is not None else '未知'}\n{job['error'] or ''}\n"
+        steps = self.service.store.rows("SELECT id,job_id,kind,state,actual_model,actual_tier,input_tokens,output_tokens,"
+                                        "cost,reserve FROM research_steps ORDER BY id DESC LIMIT 60")
+        text += "\n# 项目研究请求与估算费用\n\n用量未知不按免费计算。预留费用是本地估算；文本与图片共用本题上限。\n\n"
+        for step in steps:
+            incoming = step["input_tokens"] if step["input_tokens"] is not None else "未知"
+            outgoing = step["output_tokens"] if step["output_tokens"] is not None else "未知"
+            cost = f"¥{step['cost']:.6f}" if step["cost"] is not None else "未知"
+            text += (f"研究 {step['job_id'][:8]} / 步骤 {step['id']} · {step['kind']} · {step['state']} · "
+                     f"{step['actual_model'] or '模型未返回'} / {step['actual_tier'] or '档位未返回'} · "
+                     f"输入 {incoming} / 输出 {outgoing} · 按用量估算 {cost} / 预留 ¥{step['reserve']:.6f}\n")
         text += "\n# 运行记录\n\n" + "\n".join(f"{e['created'][:19]}  [{e['level']}] {e['message']}" for e in events)
         self.show_text(self.log_text, text)
+        self.research.refresh()
 
     def work(self, label, callback, quiet=False):
         if self.busy:
             if not quiet:
                 self.status.set("已有任务正在运行，请等待完成。")
-            return
+            return False
         self.busy = True
         self.status.set(label)
 
@@ -459,6 +496,8 @@ class App(tk.Tk):
                 self.results.put((False, text, quiet))
 
         threading.Thread(target=run, daemon=False).start()  # 网络操作不占用 Tk 主线程。
+        self.research.update_buttons()
+        return True
 
     def poll(self):
         try:
@@ -470,6 +509,7 @@ class App(tk.Tk):
             self.status.set(result.get("message", "已完成") if isinstance(result, dict) else result)
             self.refresh()
             if ok and isinstance(result, dict):
+                self.research.accept_result(result)
                 repo_id = result.get("repo_id")
                 if repo_id is not None and self.projects.exists(str(repo_id)):
                     self.projects.selection_set(str(repo_id))
@@ -479,6 +519,7 @@ class App(tk.Tk):
                     webbrowser.open(Path(result["path"]).as_uri())
             if not ok and not quiet:
                 self.dialog("任务未完成", result)
+        self.research.poll()
         self.after(200, self.poll)
 
     def scheduled(self):

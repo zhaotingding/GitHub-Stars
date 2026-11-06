@@ -288,7 +288,7 @@ def test_upgrade_reuses_config_database_and_user_feedback(service):
 
 
 def test_higher_schema_is_not_downgraded(service):
-    service.store.execute("PRAGMA user_version=3")
+    service.store.execute("PRAGMA user_version=4")
     with pytest.raises(RuntimeError, match="更新版本"):
         Service(service.paths)
 

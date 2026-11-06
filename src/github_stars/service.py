@@ -13,24 +13,40 @@ from .tutorial_html import export_tutorial
 
 
 class Service:
-    def __init__(self, paths, github_factory=None, clock=None):
+    def __init__(self, paths, github_factory=None, clock=None, research_client_factory=None):
         self.paths = paths
         self.store = Store(paths.data / "stars.sqlite3")
         self.github_factory = github_factory or GitHub
         self.clock = clock
+        self.research_client_factory = research_client_factory
 
     def now(self, config):
         return self.clock() if self.clock else datetime.now(ZoneInfo(config["schedule"]["timezone"]))
 
     def run(self, action, **kwargs):
+        if action == 'research_status':
+            return self.store.research_public(kwargs['job_id'])
+        if action == 'research_cancel':
+            return self.store.research_cancel(kwargs['job_id'])
+        if action == 'research_bookmark':
+            return self.store.research_bookmark(kwargs['job_id'], kwargs['saved'])
+        if action == 'research_feedback':
+            return self.store.research_feedback(kwargs['job_id'], kwargs['rating'])
         with exclusive(self.paths.data / "worker.lock"):
             config = self.paths.load()  # 每次工作重新读取，修改设置无需重启计划任务。
             now = self.now(config)
+            self.store.research_interrupt()
             # 拿到互斥锁说明没有其他业务执行者；上次仍在途的状态来自中断。
             self.store.execute("UPDATE ai_jobs SET status='unknown',error='进程中断，禁止自动重新提交' WHERE status='submitting'")
             self.store.execute("UPDATE digests SET mail_state='unknown',mail_detail='进程中断，请检查收件箱' WHERE mail_state='sending'")
             self.store.execute("UPDATE scans SET status='interrupted',detail='进程中断，稍后重新采集' WHERE status='running'")
             try:
+                if action in {'research', 'research_resume', 'research_continue'}:
+                    from .research import Research
+                    engine = Research(self)
+                    job = (engine.start(config, now, **kwargs) if action == 'research' else
+                           engine.run(kwargs['job_id'], resume=action == 'research_resume'))
+                    return {'message': '研究任务：'+job['state'], 'research_job': job}
                 if action == "scan":
                     return self.scan(config, now)
                 if action == "digest":
@@ -87,8 +103,7 @@ class Service:
         client = self.github_factory(self.paths.secret("github"))
         try:
             content, sha, url = client.readme(row["name"])
-            self.store.execute("UPDATE repos SET readme=?,readme_sha=?,readme_url=?,readme_at=? WHERE id=?",
-                               (content, sha, url, now.isoformat(), row["id"]))
+            self.store.cache_readme(row['id'], content, sha, url, now.isoformat())
         finally:
             client.close()
         return self.store.one("SELECT * FROM repos WHERE id=?", (row["id"],))
@@ -106,8 +121,7 @@ class Service:
                     imported.append(repo["id"])
                     try:
                         content, sha, url = client.readme(repo["full_name"])
-                        self.store.execute("UPDATE repos SET readme=?,readme_sha=?,readme_url=?,readme_at=? WHERE id=?",
-                                           (content, sha, url, now.isoformat(), repo["id"]))
+                        self.store.cache_readme(repo['id'], content, sha, url, now.isoformat())
                     except GitHubError as exc:
                         problems.append(f"{name} README：{exc}")
                 except GitHubError as exc:
@@ -162,8 +176,7 @@ class Service:
                 fetched += 1
                 try:
                     content, sha, url = client.readme(row["name"])
-                    self.store.execute("UPDATE repos SET readme=?,readme_sha=?,readme_url=?,readme_at=? WHERE id=?",
-                                       (content, sha, url, now.isoformat(), row["id"]))
+                    self.store.cache_readme(row['id'], content, sha, url, now.isoformat())
                 except GitHubError as exc:
                     readme_failures.append(f"{row['name']}：{exc}")
                     if "受限" in str(exc):

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import math
 import os
 import re
 import uuid
@@ -31,7 +32,9 @@ def validate(config: dict) -> None:
         if isinstance(template, dict):
             for key in template:
                 types(value[key], template[key], f"{path}.{key}")
-        if isinstance(template, list) and (not value or not all(isinstance(x, str) and x.strip() for x in value)):
+        empty_allowed = path in {'.research.interests', '.research.exclude_terms'}
+        if isinstance(template, list) and ((not value and not empty_allowed)
+                                          or not all(isinstance(x, str) and x.strip() for x in value)):
             raise ValueError(f"列表需要非空文字：{path}")
 
     types(config, defaults)  # YAML true/false 与整数必须区分。
@@ -46,6 +49,10 @@ def validate(config: dict) -> None:
               ("ai", "readme_chars"): (2000, 100000), ("ai", "timeout_seconds"): (30, 1800),
               ("tutorial", "max_calls_per_week"): (1, 20), ("tutorial", "max_output_tokens"): (4000, 128000),
               ("tutorial", "readme_chars"): (2000, 100000), ("tutorial", "timeout_seconds"): (60, 1800),
+              ("research", "max_calls"): (1, 6), ("research", "max_tools"): (0, 8),
+              ("research", "max_images"): (0, 2), ("research", "max_calls_per_week"): (1, 100),
+              ("research", "max_output_tokens"): (1000, 8000), ("research", "max_input_chars"): (4000, 50000),
+              ("research", "timeout_seconds"): (15, 900), ("research", "history_days"): (1, 90),
               ("email", "port"): (1, 65535)}
     for (section, key), (low, high) in bounds.items():
         if not low <= config[section][key] <= high:
@@ -76,6 +83,18 @@ def validate(config: dict) -> None:
             raise ValueError("服务等级必须为 default 或 flex；不会自动切换到更贵等级")
         if not config[section]["prompt"].strip() or len(config[section]["prompt"]) > 20000:
             raise ValueError(f"{section} 提示词需要 1–20000 字符")
+    settings = config['research']
+    if settings['service_tier'] not in {'default', 'flex'} or settings['image_credential_source'] not in {'local', 'msgx', 'autogpu'}:
+        raise ValueError('研究服务等级或图片凭据来源无效')
+    for field in ('max_cost_cny', 'input_cny_per_million', 'output_cny_per_million',
+                  'image_input_cny_per_million', 'image_output_cny_per_million'):
+        if not math.isfinite(settings[field]) or not 0 <= settings[field] <= 100000:
+            raise ValueError('研究费率和预算需要有限非负数')
+    if not .01 <= settings['max_cost_cny'] <= 100:
+        raise ValueError('研究预算需要0.01～100元（本地估算）')
+    for field in ('interests', 'exclude_terms'):
+        if len(settings[field]) > 12 or any(not 2 <= len(x) <= 50 for x in settings[field]):
+            raise ValueError('研究关注点/少关注词各最多12项，每项2～50字')
 
 
 @dataclass

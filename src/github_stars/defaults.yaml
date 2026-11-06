@@ -58,6 +58,26 @@ tutorial:
     解释相关项目的关系和选用条件，仅引用已提供的真实链接。给出从最小实验到改进方案、测试验证和提交 PR 的路线。
     把事实、作者主张和建议分开；说明哪些命令有来源，哪些思想实验或改进建议尚未验证。
     每个实践步骤有明确目标与可判断的结果，检查点用问题和参考答案检验理解。不要只堆砌章节名。
+research:
+  model: ''
+  image_model: ''
+  image_credential_source: local
+  service_tier: default
+  max_calls: 3
+  max_tools: 4
+  max_images: 1
+  max_calls_per_week: 20
+  max_output_tokens: 4000
+  max_input_chars: 24000
+  timeout_seconds: 180
+  history_days: 30
+  max_cost_cny: 0.5
+  input_cny_per_million: 0.0
+  output_cny_per_million: 0.0
+  image_input_cny_per_million: 0.0
+  image_output_cny_per_million: 0.0
+  interests: []
+  exclude_terms: []
 email:
   enabled: false
   host: ''

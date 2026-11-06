@@ -106,7 +106,9 @@ def test_existing_windows_credential_contract_utf8_and_reference_only(monkeypatc
     def release(_):
         assert not any(kept[0])  # 解码后清理原生临时缓冲，而不是复制到新凭据。
     api = SimpleNamespace(CredReadW=Function(read), CredFree=Function(release))
-    monkeypatch.setattr(ctypes, "WinDLL", lambda *args, **kwargs: api)
+    # 此处验证原生接口替身的引用/清理契约；真实Windows凭据读取需另行验收。
+    monkeypatch.setattr('github_stars.config.os', SimpleNamespace(name='nt'))
+    monkeypatch.setattr(ctypes, "WinDLL", lambda *args, **kwargs: api, raising=False)
     assert existing_openai_secret(source) == "fake-测试-key"
     assert len(targets) == 1 and targets[0].startswith(target_prefix)
 

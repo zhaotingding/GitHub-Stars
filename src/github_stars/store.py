@@ -4,6 +4,9 @@ import json
 import sqlite3
 from contextlib import contextmanager
 
+from .research_store import SCHEMA as RESEARCH_SCHEMA
+from .research_store import ResearchStore
+
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS repos (
  id INTEGER PRIMARY KEY, name TEXT NOT NULL, metadata TEXT NOT NULL, bucket TEXT NOT NULL,
@@ -31,14 +34,15 @@ CREATE TABLE IF NOT EXISTS events (id INTEGER PRIMARY KEY, created TEXT NOT NULL
 STUDY_STATES = {"pending": "待研究", "saved": "收藏", "studied": "已研究", "focus": "重点", "studying": "正在研究"}
 
 
-class Store:
+class Store(ResearchStore):
     def __init__(self, path):
         self.path = path
         with self.connect() as db:
             version = db.execute("PRAGMA user_version").fetchone()[0]
-            if version > 2:
+            if version > 3:
                 raise RuntimeError("此数据库来自更新版本，请使用匹配的程序")
             db.executescript(SCHEMA)
+            db.executescript(RESEARCH_SCHEMA)
             if version < 2:
                 db.execute("BEGIN IMMEDIATE")  # 迁移与后台写入互斥，失败回滚不留半份结构。
                 repo_columns = {r[1] for r in db.execute("PRAGMA table_info(repos)")}
@@ -53,6 +57,11 @@ class Store:
                     if name not in columns:
                         db.execute(f"ALTER TABLE ai_jobs ADD COLUMN {name} {definition}")
                 db.execute("PRAGMA user_version=2")
+            if version < 3:
+                db.execute("INSERT OR IGNORE INTO research_documents(repo_id,sha,text,url,captured) "
+                           "SELECT id,CASE WHEN readme_sha<>'' THEN readme_sha ELSE 'legacy:'||id END,readme,"
+                           "readme_url,COALESCE(readme_at,seen_at) FROM repos WHERE trim(readme)<>''")
+                db.execute("PRAGMA user_version=3")
 
     @contextmanager
     def connect(self):
