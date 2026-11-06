@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import tkinter as tk
+from tkinter import font as tkfont
 from tkinter import ttk
 
 PALETTES = {
@@ -10,6 +11,18 @@ PALETTES = {
     "light": {"bg": "#edf2f5", "card": "#f8fafc", "ink": "#1c2c3b", "muted": "#586b7d",
               "accent": "#23775d", "selected": "#cce8dd", "border": "#c3cfda"},
 }
+
+
+def configure_ui_fonts(root):
+    available = set(tkfont.families(root))
+    preferred = ("Microsoft YaHei UI", "Microsoft YaHei", "Noto Sans CJK SC", "WenQuanYi Micro Hei")
+    family = next((name for name in preferred if name in available),
+                  tkfont.nametofont("TkDefaultFont", root=root).actual("family"))
+    for name in ("TkDefaultFont", "TkTextFont", "TkMenuFont", "TkHeadingFont", "TkCaptionFont",
+                 "TkSmallCaptionFont", "TkIconFont", "TkTooltipFont"):
+        tkfont.nametofont(name, root=root).configure(family=family)
+    root.option_add("*Font", (family, 10))
+    return family
 
 
 def _titlebar(window, dark):

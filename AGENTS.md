@@ -15,4 +15,4 @@
 | GitHub 采集、质量筛选、自然周期、重复推荐与周报 | [stars-discovery-digest](.agents/skills/stars-discovery-digest/SKILL.md) |
 | AI 教程请求、结果恢复、Token 用量与邮件投递 | [stars-generation-delivery](.agents/skills/stars-generation-delivery/SKILL.md) |
 
-安装、运行、计划任务和资料保留见 [README](README.md)。当前证据见 [0.1.1 验收记录](docs/verification-0.1.1.md)，不代表未来版本或其他机器已通过。
+安装、运行、计划任务和资料保留见 [README](README.md)。当前证据见 [0.2.1 验收记录](docs/verification-0.2.1.md)，不代表未来版本或其他机器已通过。

@@ -144,10 +144,21 @@ class Paths:
         source = source or (self.load()["ai"]["credential_source"] if kind == "openai" else "local")
         if kind == "openai" and source != "local":
             return existing_openai_secret(source)
-        return os.getenv(names[kind]) or keyring.get_password(f"GitHub Stars++:{self.root}", kind) or ""
+        value = os.getenv(names[kind])
+        if value:
+            return value
+        try:
+            return keyring.get_password(f"GitHub Stars++:{self.root}", kind) or ""
+        except keyring.errors.NoKeyringError:
+            if kind == "github":
+                return ""  # 公开仓库允许匿名读取；无凭据服务不应阻断此入口。
+            raise ValueError(f"当前环境没有系统凭据服务，请在启动前设置 {names[kind]}，或配置系统凭据服务") from None
 
     def set_secret(self, kind, value):
-        keyring.set_password(f"GitHub Stars++:{self.root}", kind, value)  # Windows 系统凭据库，不写 YAML。
+        try:
+            keyring.set_password(f"GitHub Stars++:{self.root}", kind, value)  # 系统凭据库，不写 YAML。
+        except keyring.errors.NoKeyringError:
+            raise ValueError("当前环境没有系统凭据服务，密钥未保存；请配置系统凭据服务或通过启动环境变量提供密钥") from None
 
 
 def existing_openai_secret(source):

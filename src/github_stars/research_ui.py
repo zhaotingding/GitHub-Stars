@@ -20,7 +20,7 @@ KINDS = {"repository": "项目资料", "readme_version": "README 历史", "image
 
 class ResearchPanel(ttk.Frame):
     def __init__(self, app):
-        super().__init__(app.tabs, padding=16)
+        super().__init__(app.tabs, padding=12)
         self.app = app
         self.active_id = None
         self.job = None
@@ -32,7 +32,7 @@ class ResearchPanel(ttk.Frame):
     def _build(self):
         ttk.Label(self, text="围绕本地项目元数据、README 与 Star 观测提问。Agent 可在本题范围内补查；不会实时搜索 GitHub。",
                   style="Muted.TLabel").pack(anchor="w", pady=(0, 8))
-        self.question = tk.Text(self, height=3, wrap="word", font=("Microsoft YaHei UI", 11), relief="flat")
+        self.question = tk.Text(self, height=2, wrap="word", font=(self.app.ui_font_family, 11), relief="flat")
         self.question.pack(fill="x")
         controls = ttk.Frame(self)
         controls.pack(fill="x", pady=(8, 4))
@@ -320,8 +320,9 @@ class ResearchPanel(ttk.Frame):
         mode = "受限 Agent" if job.get("mode") == "agent" else "标准问答" if job.get("mode") else "收藏"
         question = job["question"][:100] + ("…" if len(job["question"]) > 100 else "")
         error = job.get("error", "")
-        self.state_text.set(f"{state} · {mode} · {job.get('calls', 0)} 次调用 · 累计预留估算 ¥{job.get('reserved_cny', 0):.4f}\n"
-                            f"{question}\n{error[:180]}")
+        summary = (f"{state} · {mode} · {job.get('calls', 0)} 次调用 · "
+                   f"累计预留估算 ¥{job.get('reserved_cny', 0):.4f}\n{question}")
+        self.state_text.set(summary + (f"\n{error[:180]}" if error else ""))
         self.feedback_text.set({"useful": "已标记有用", "irrelevant": "已标记不相关"}.get(job.get("feedback"), ""))
         self._render_answer(job)
         previous = self.sources.selection()

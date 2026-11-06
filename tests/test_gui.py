@@ -1,4 +1,5 @@
 import tkinter as tk
+from tkinter import font as tkfont
 from types import SimpleNamespace
 
 import pytest
@@ -6,6 +7,28 @@ from test_workflow import NOW, repository
 
 from github_stars.config import Paths
 from github_stars.gui import App
+
+
+def test_chinese_ui_renders_glyphs_instead_of_unicode_escapes(tmp_path, monkeypatch):
+    monkeypatch.setattr(Paths, "secret", lambda *_: "")
+    paths = Paths(tmp_path)
+    config = paths.load()
+    config["schedule"]["enabled"] = False
+    paths.save(config)
+    try:
+        app = App(paths)
+    except tk.TclError as exc:
+        pytest.skip(f"无图形桌面：{exc}")
+    try:
+        app.update_idletasks()
+        selected = tkfont.Font(root=app, family=app.ui_font_family, size=11)
+        assert selected.actual("family") == app.ui_font_family
+        assert selected.measure("每天观察") < selected.measure(r"\u6bcf\u5929\u89c2\u5bdf")
+        assert tkfont.nametofont("TkDefaultFont", root=app).actual("family") == app.ui_font_family
+    finally:
+        for task in app.tk.call("after", "info"):
+            app.after_cancel(task)
+        app.destroy()
 
 
 def test_empty_gui_settings_save_and_reopen(tmp_path, monkeypatch):
@@ -23,9 +46,21 @@ def test_empty_gui_settings_save_and_reopen(tmp_path, monkeypatch):
         assert "GitHub Stars++" in app.title()
         assert not app.projects.get_children()
         assert "立即采集" in app.detail.get("1.0", "end")
+        app.settings_button.invoke()
+        app.update()
+        assert app.tabs.tab(app.settings, "text") == "设置"
+        assert app.tabs.select() == str(app.settings)
+        assert app.settings_book.select() == str(app.settings_pages["API连接"])
+        api_page = str(app.settings_pages["API连接"])
+        for field in (("ai", "model"), ("tutorial", "model"), ("research", "image_model")):
+            assert str(app.forms[field][1]).startswith(api_page + ".")
+        app.settings_nav.selection_set("发现与筛选")
+        app.settings_nav.event_generate("<<TreeviewSelect>>")
+        app.update()
+        assert app.settings_book.select() == str(app.settings_pages["发现与筛选"])
         variable, _, _ = app.forms[("digest", "max_projects")]
         variable.set("2")
-        app.save_settings()
+        app.settings_save_button.invoke()
         assert paths.load()["digest"]["max_projects"] == 2
         # 状态栏在窗口内部；最低尺寸下设置页仍能保存。
         app.geometry("1100x740")

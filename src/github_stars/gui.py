@@ -14,7 +14,7 @@ from .reports import digest_text, export_digest, project_text
 from .research_ui import ResearchPanel
 from .service import Service
 from .store import STUDY_STATES
-from .theme import apply_theme, themed_dialog
+from .theme import apply_theme, configure_ui_fonts, themed_dialog
 
 BG, CARD, INK, MUTED, GREEN = "#f3f6f2", "#ffffff", "#172f29", "#64786f", "#21634e"
 
@@ -22,6 +22,7 @@ BG, CARD, INK, MUTED, GREEN = "#f3f6f2", "#ffffff", "#172f29", "#64786f", "#2163
 class App(tk.Tk):
     def __init__(self, paths):
         super().__init__()
+        self.ui_font_family = configure_ui_fonts(self)
         self.paths = paths
         self.service = Service(paths)
         self.config_data = paths.ensure_theme()
@@ -36,8 +37,8 @@ class App(tk.Tk):
         self.protocol("WM_DELETE_WINDOW", self.close)
         style = ttk.Style(self)
         style.theme_use("clam")
-        style.configure(".", font=("Microsoft YaHei UI", 10), background=BG, foreground=INK)
-        style.configure("TButton", padding=(14, 9), borderwidth=0)
+        style.configure(".", font=(self.ui_font_family, 10), background=BG, foreground=INK)
+        style.configure("TButton", padding=(12, 6), borderwidth=0)
         style.configure("Accent.TButton", background=GREEN, foreground="white")
         style.map("Accent.TButton", background=[("active", "#2e8065")])
         style.configure("Treeview", rowheight=38, background=CARD, fieldbackground=CARD, borderwidth=0)
@@ -46,13 +47,15 @@ class App(tk.Tk):
         style.configure("TNotebook.Tab", padding=(18, 11))
         top = tk.Frame(self, bg=BG)
         top.pack(fill="x", padx=28, pady=(22, 12))
-        tk.Label(top, text="✦  GitHub Stars++", bg=BG, fg=INK, font=("Segoe UI", 24, "bold")).pack(side="left")
-        tk.Label(top, text="每天观察 · 每周只读几项", bg=BG, fg=MUTED, font=("Microsoft YaHei UI", 11)).pack(side="left", padx=24)
+        tk.Label(top, text="✦  GitHub Stars++", bg=BG, fg=INK, font=(self.ui_font_family, 24, "bold")).pack(side="left")
+        tk.Label(top, text="每天观察 · 每周只读几项", bg=BG, fg=MUTED, font=(self.ui_font_family, 11)).pack(side="left", padx=24)
         self.theme_choice = tk.StringVar(value="深色" if self.config_data["appearance"]["theme"] == "dark" else "浅色")
         choice = ttk.Combobox(top, textvariable=self.theme_choice, state="readonly", values=["深色", "浅色"], width=7)
         choice.pack(side="right")
         choice.bind("<<ComboboxSelected>>", lambda _: self.change_theme())
-        self.counter = tk.Label(self, bg=BG, fg=MUTED, anchor="w", font=("Microsoft YaHei UI", 11))
+        self.settings_button = ttk.Button(top, text="设置", command=lambda: self.open_settings("API连接"))
+        self.settings_button.pack(side="right", padx=(0, 12))
+        self.counter = tk.Label(self, bg=BG, fg=MUTED, anchor="w", font=(self.ui_font_family, 11))
         self.counter.pack(fill="x", padx=30, pady=(0, 14))
         self.tabs = ttk.Notebook(self)
         self.radar = ttk.Frame(self.tabs, padding=16)
@@ -61,7 +64,7 @@ class App(tk.Tk):
         self.settings = ttk.Frame(self.tabs, padding=16)
         self.logs = ttk.Frame(self.tabs, padding=16)
         for widget, name in ((self.radar, "项目雷达"), (self.weekly, "每周精选"), (self.research, "项目研究"),
-                             (self.settings, "偏好与连接"), (self.logs, "运行与用量")):
+                             (self.settings, "设置"), (self.logs, "运行与用量")):
             self.tabs.add(widget, text=name)
         self.status = tk.StringVar(value="准备就绪。首次使用请采集项目，再查看入选理由。")
         ttk.Label(self, textvariable=self.status, wraplength=1200).pack(side="bottom", fill="x", padx=28, pady=12)
@@ -79,13 +82,13 @@ class App(tk.Tk):
         frame = tk.Frame(parent, bg=CARD)
         frame.pack(fill="both", expand=True)
         text = tk.Text(frame, height=1, width=1, wrap="word", bg=CARD, fg=INK, relief="flat", padx=22, pady=18,
-                       font=("Microsoft YaHei UI", 11), spacing1=3, spacing3=7)
+                       font=(self.ui_font_family, 11), spacing1=3, spacing3=7)
         bar = ttk.Scrollbar(frame, command=text.yview)
         text.configure(yscrollcommand=bar.set)
         bar.pack(side="right", fill="y")
         text.pack(fill="both", expand=True)
-        text.tag_configure("title", font=("Microsoft YaHei UI", 17, "bold"), foreground=GREEN, spacing1=16)
-        text.tag_configure("subtitle", font=("Microsoft YaHei UI", 12, "bold"), spacing1=12)
+        text.tag_configure("title", font=(self.ui_font_family, 17, "bold"), foreground=GREEN, spacing1=16)
+        text.tag_configure("subtitle", font=(self.ui_font_family, 12, "bold"), spacing1=12)
         return text
 
     def show_text(self, widget, value):
@@ -224,7 +227,7 @@ class App(tk.Tk):
         frame = ttk.Frame(window, padding=20)
         frame.pack(fill="both", expand=True)
         ttk.Label(frame, text="粘贴网址或包含多个 Markdown 链接的文字，粘贴后自动导入。\n每次最多 10 个仓库；不会因 Star 少或研究匹配分低而拒绝。", wraplength=650).pack(anchor="w", pady=(0, 14))
-        text = tk.Text(frame, height=7, wrap="word", font=("Microsoft YaHei UI", 11))
+        text = tk.Text(frame, height=7, wrap="word", font=(self.ui_font_family, 11))
         text.pack(fill="both", expand=True)
 
         def submit():
@@ -305,23 +308,37 @@ class App(tk.Tk):
             self.status.set(f"已导出 HTML 与 Markdown：{page.parent}")
 
     def build_settings(self):
-        ttk.Label(self.settings, text="初始分析帮助筛选；深入教程只在主动生成时调用。密钥留空保留原值。", style="Muted.TLabel").pack(anchor="w", pady=(0, 10))
+        ttk.Label(self.settings, text="在左侧选择设置分类。API、模型与凭据统一在“API连接”中配置；修改后点击下方“保存设置”。",
+                  style="Muted.TLabel").pack(anchor="w", pady=(0, 10))
         self.forms = {}
         self.secrets = {}
-        ttk.Style(self).configure("Settings.TNotebook.Tab", padding=(9, 9))
-        book = ttk.Notebook(self.settings, style="Settings.TNotebook")
+        body = ttk.Frame(self.settings)
+        body.pack(fill="both", expand=True)
+        navigation = ttk.Frame(body)
+        navigation.pack(side="left", fill="y", padx=(0, 16))
+        self.settings_nav = ttk.Treeview(navigation, show="tree", selectmode="browse", height=10)
+        self.settings_nav.column("#0", width=165, minwidth=150, stretch=False)
+        bar = ttk.Scrollbar(navigation, command=self.settings_nav.yview)
+        self.settings_nav.configure(yscrollcommand=bar.set)
+        bar.pack(side="right", fill="y")
+        self.settings_nav.pack(fill="both", expand=True)
+        ttk.Style(self).layout("Settings.TNotebook.Tab", [])
+        book = self.settings_book = ttk.Notebook(body, style="Settings.TNotebook")
         book.pack(fill="both", expand=True)
+        self.settings_pages = {}
         specs = {
+            "API连接": [("ai", "enabled", "启用模型 API"), ("ai", "credential_source", "文本模型凭据来源"),
+                      ("ai", "model", "初始分析模型 ID"), ("tutorial", "model", "深入教程模型 ID"),
+                      ("research", "model", "研究模型 ID（留空沿用初始分析）"),
+                      ("research", "image_model", "截图解读模型 ID"),
+                      ("research", "image_credential_source", "图片模型凭据来源")],
             "研究画像": [("profile", "description", "研究背景与阅读偏好"), ("profile", "research_terms", "研究关键词（每行一个）"), ("profile", "hot_terms", "热点关键词（每行一个）")],
             "发现与筛选": [("discovery", "min_stars", "常规最低 Star"), ("discovery", "new_min_stars", "新项目最低 Star"), ("digest", "max_projects", "每周最多项目数"), ("digest", "hot_slots", "其中热点最多名额"), ("digest", "min_score", "最低推荐分"), ("digest", "cooldown_days", "重复推荐冷却天数")],
             "检索来源": [("discovery", "research_queries", "研究查询（每行一条 GitHub 语法）"), ("discovery", "hot_queries", "热点查询（每行一条）")],
             "定时检查": [("schedule", "enabled", "启用自动检查"), ("schedule", "timezone", "时区"), ("schedule", "daily_hour", "每日采集小时（0–23）"), ("schedule", "weekly_day", "周报星期（0=周一，4=周五）"), ("schedule", "weekly_hour", "周报小时（0–23）")],
-            "初始分析": [("ai", "enabled", "启用模型 API"), ("ai", "credential_source", "凭据来源"), ("ai", "auto_analyze", "打开项目时自动做首次短分析"), ("ai", "model", "初始分析模型 ID"), ("ai", "service_tier", "服务等级"), ("ai", "max_calls_per_week", "每周最多初始分析请求"), ("ai", "max_output_tokens", "初始分析输出 Token 上限"), ("ai", "readme_chars", "初始分析 README 字符上限"), ("ai", "timeout_seconds", "等待超时（秒）")],
-            "深入教程": [("tutorial", "model", "教程模型 ID（可独立选低成本模型）"), ("tutorial", "service_tier", "教程服务等级"), ("tutorial", "max_calls_per_week", "每周最多教程请求"), ("tutorial", "max_output_tokens", "教程输出 Token 上限"), ("tutorial", "readme_chars", "教程 README 字符上限"), ("tutorial", "timeout_seconds", "教程等待超时（秒）")],
-            "项目研究": [("research", "model", "研究模型 ID（留空沿用初始分析模型）"),
-                     ("research", "image_model", "截图解读模型 ID（需明确配置）"),
-                     ("research", "image_credential_source", "图片凭据来源"),
-                     ("research", "service_tier", "研究服务等级"),
+            "初始分析": [("ai", "auto_analyze", "打开项目时自动做首次短分析"), ("ai", "service_tier", "服务等级"), ("ai", "max_calls_per_week", "每周最多初始分析请求"), ("ai", "max_output_tokens", "初始分析输出 Token 上限"), ("ai", "readme_chars", "初始分析 README 字符上限"), ("ai", "timeout_seconds", "等待超时（秒）")],
+            "深入教程": [("tutorial", "service_tier", "教程服务等级"), ("tutorial", "max_calls_per_week", "每周最多教程请求"), ("tutorial", "max_output_tokens", "教程输出 Token 上限"), ("tutorial", "readme_chars", "教程 README 字符上限"), ("tutorial", "timeout_seconds", "教程等待超时（秒）")],
+            "项目研究": [("research", "service_tier", "研究服务等级"),
                      ("research", "max_calls", "每题最多模型调用（含图片）"),
                      ("research", "max_tools", "每题最多工具动作"),
                      ("research", "max_images", "每题最多 PNG 截图"),
@@ -343,6 +360,8 @@ class App(tk.Tk):
         for title, fields in specs.items():
             container = ttk.Frame(book)
             book.add(container, text=title)
+            self.settings_pages[title] = container
+            self.settings_nav.insert("", "end", iid=title, text=title)
             canvas = tk.Canvas(container, highlightthickness=0)
             scrollbar = ttk.Scrollbar(container, orient="vertical", command=canvas.yview)
             canvas.configure(yscrollcommand=scrollbar.set)
@@ -354,6 +373,14 @@ class App(tk.Tk):
             canvas.bind("<Configure>", lambda event, canvas=canvas, window_id=window_id: canvas.itemconfigure(window_id, width=event.width))
             page.columnconfigure(1, weight=1)
             index = 0
+            for kind, label in ({"API连接": [("openai", "模型 API Key（留空保留原值）"),
+                                               ("github", "GitHub Token（可选，提高限额）")],
+                                 "邮件推送": [("smtp", "SMTP 密码 / 授权码")]}.get(title, [])):
+                ttk.Label(page, text=label).grid(row=index, column=0, sticky="w", pady=8)
+                value = tk.StringVar()
+                ttk.Entry(page, textvariable=value, show="•").grid(row=index, column=1, sticky="ew", pady=8)
+                self.secrets[kind] = value
+                index += 1
             for section, key, label in fields:
                 value = self.config_data[section][key]
                 ttk.Label(page, text=label).grid(row=index, column=0, sticky="nw", padx=(0, 20), pady=8)
@@ -362,7 +389,7 @@ class App(tk.Tk):
                     widget = ttk.Checkbutton(page, variable=variable)
                 elif isinstance(value, list) or key in {"description", "prompt"}:
                     variable = None
-                    widget = tk.Text(page, height=10 if key == "prompt" else 5 if section == "profile" else 7, width=55, wrap="word", font=("Microsoft YaHei UI", 10))
+                    widget = tk.Text(page, height=10 if key == "prompt" else 5 if section == "profile" else 7, width=55, wrap="word", font=(self.ui_font_family, 10))
                     widget.insert("1.0", "\n".join(value) if isinstance(value, list) else value)
                 else:
                     variable = tk.StringVar(value=str(value))
@@ -373,21 +400,32 @@ class App(tk.Tk):
                 widget.grid(row=index, column=1, sticky="ew", pady=8)
                 self.forms[(section, key)] = (variable, widget, type(value))
                 index += 1
-            for kind, label in ({"初始分析": [("openai", "本项目 OpenAI API Key（可选）")], "邮件推送": [("smtp", "SMTP 密码 / 授权码")], "检索来源": [("github", "GitHub Token（可选，提高限额）")]}.get(title, [])):
-                ttk.Label(page, text=label).grid(row=index, column=0, sticky="w", pady=8)
-                value = tk.StringVar()
-                ttk.Entry(page, textvariable=value, show="•").grid(row=index, column=1, sticky="ew", pady=8)
-                self.secrets[kind] = value
-                index += 1
             if title == "定时检查":
                 ttk.Label(page, text="窗口打开时自动检查。关闭窗口后需安装 Windows 计划任务。\n安装命令见 README：tools/install_schedule.ps1；关机期间无法采集，登录后补当前周期。", wraplength=800).grid(row=index, column=0, columnspan=2, sticky="w", pady=24)
-            if title == "初始分析":
-                ttk.Label(page, text="凭据来源：local = 本项目／环境变量；msgx = 消息萃取已存 OpenAI；autogpu = AutoGPU 已存 OpenAI。\n仅在请求时读取所选凭据，不复制密钥。Flex 较慢但成本更低，不自动改用更贵等级。\n自动短分析在打开项目或准备周报时触发，受独立周次数上限约束。", wraplength=800).grid(row=index, column=0, columnspan=2, sticky="w", pady=20)
+            if title == "API连接":
+                ttk.Label(page, text="local 使用本项目系统凭据或启动环境变量。密钥留空保留原值，不写入 YAML。\nWSL 未配置系统凭据服务时，请在启动前提供环境变量；msgx/autogpu 仅支持 Windows 原生运行。\n模型名称以账户可用范围为准；本页保存配置不发送模型测试请求。研究费率和限额在“项目研究”中配置。",
+                          wraplength=720).grid(row=index, column=0, columnspan=2, sticky="w", pady=20)
             if title == "深入教程":
                 ttk.Label(page, text="教程只由你主动生成，每次生成创建新请求；查看已有教程不调用 API。\n默认较低成本 GPT-6 Luna + Flex，较大输出预算用于概念、实践、配置和 PR 路线。\n次数与 Token 限制不是金额预算；生成步骤尚未经真实运行。", wraplength=800).grid(row=index, column=0, columnspan=2, sticky="w", pady=20)
             if title == "项目研究":
                 ttk.Label(page, text="研究只由你主动提交；使用本地缓存快照，不自动采集 GitHub。\n文本沿用初始分析凭据；图片凭据可单独选择。每题都需明确允许读图。\n费率 0 代表未知，不会新增收费请求；金额仅为本地估算，上限同时受次数、工具与时限约束。\n恢复只取回原响应；后续新请求须明确继续，继续不重置原时限或预算。\n历史问题保留 7 天；收藏只保留答案与来源位置。关注词与反馈仅影响后续本地排序。", wraplength=800).grid(row=index, column=0, columnspan=2, sticky="w", pady=20)
-        ttk.Button(self.settings, text="保存设置", style="Accent.TButton", command=self.save_settings).pack(anchor="e", pady=(12, 0))
+        self.settings_nav.bind("<<TreeviewSelect>>", self.select_settings_category)
+        self.settings_nav.selection_set("API连接")
+        book.select(self.settings_pages["API连接"])
+        self.settings_save_button = ttk.Button(self.settings, text="保存设置", style="Accent.TButton", command=self.save_settings)
+        self.settings_save_button.pack(anchor="e", pady=(12, 0))
+
+    def select_settings_category(self, _event=None):
+        selected = self.settings_nav.selection()
+        if selected:
+            self.settings_book.select(self.settings_pages[selected[0]])
+
+    def open_settings(self, category=None):
+        self.tabs.select(self.settings)
+        if category in self.settings_pages:
+            self.settings_nav.selection_set(category)
+            self.settings_nav.see(category)
+            self.settings_book.select(self.settings_pages[category])
 
     def save_settings(self):
         if self.busy:
