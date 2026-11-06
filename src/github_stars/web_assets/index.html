@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GitHub Stars++ · 网页端</title><link rel="stylesheet" href="/app.css"><script src="/app.js" defer></script></head>
+<body>
+<aside class="sidebar"><div class="brand">✦ GitHub Stars++</div><div class="muted small">个人开源研究工作台</div>
+<nav id="navigation">
+<button data-page="radar" class="active">项目雷达 <span>01</span></button>
+<button data-page="research">项目研究 <span>02</span></button>
+<button data-page="weekly">每周精选 <span>03</span></button>
+<button data-page="settings">设置 <span>04</span></button>
+<button data-page="logs">运行记录 <span>05</span></button>
+</nav><div class="sidebar-bottom"><span class="dot"></span> 本机网页服务<br><span id="version" class="muted small"></span></div></aside>
+<main>
+<header><div><div class="eyebrow">YOUR RESEARCH, CONNECTED</div><h1 id="page-title">项目雷达</h1></div>
+<div class="header-actions"><span id="summary" class="muted"></span><select id="theme-choice" aria-label="主题"><option value="dark">深色</option><option value="light">浅色</option></select><button id="refresh">刷新</button><button id="stop-server">停止服务</button></div></header>
+<div id="notice" role="status" aria-live="polite">正在连接本机资料库…</div>
+<section id="page-radar" class="page">
+<div class="toolbar"><button id="scan" class="primary task-button">立即采集</button><input id="import-text" placeholder="粘贴 GitHub 仓库链接" aria-label="GitHub仓库链接"><button id="import" class="task-button">导入项目</button></div>
+<div class="split"><div class="panel"><div class="panel-heading"><h2>已收集项目</h2><input id="search" placeholder="搜索全部项目的名称或简介" aria-label="搜索项目"><p class="muted small">每次展示前300条，可搜索全部已保存资料。</p></div><div id="project-list" class="project-list"></div></div>
+<article class="panel detail" id="project-detail"><div class="empty"><h2>从一个项目开始</h2><p>导入正在学习的仓库，再查看资料、生成教程或提出问题。</p><p class="muted">模型功能需要先在「设置 → API连接」配置。</p></div></article></div>
+</section>
+<section id="page-research" class="page hidden">
+<div class="panel composer"><div class="eyebrow">ASK YOUR COLLECTION</div><h2>带着问题读项目</h2>
+<textarea id="question" rows="3" placeholder="例如：哪些项目能帮助我从传统视觉转向机器人多模态感知？" aria-label="研究问题"></textarea>
+<div class="toolbar"><select id="research-mode" aria-label="研究模式"><option value="standard">标准问答</option><option value="agent">受限 Agent</option></select><select id="research-scope" aria-label="研究范围"><option value="">全部本地项目</option></select><button id="ask" class="primary task-button">开始研究</button></div>
+<div class="toolbar attachments"><label><input type="checkbox" id="allow-images"> 仅本题允许读图</label><input type="file" id="images" accept="image/png" multiple aria-label="选择PNG截图"><span class="muted small">静态PNG，每张最多2MB；标准模式最多一张。</span></div>
+</div><div class="split research-layout"><div class="panel"><h2>研究记录</h2><div id="research-history"></div></div><article class="panel detail"><div id="research-answer" class="empty">选择历史记录，或提交一个新问题。</div><div id="research-controls" class="toolbar"></div><details id="sources-details"><summary>来源与执行记录</summary><div id="research-sources"></div><pre id="source-text"></pre><h3>资料组织与Star观测</h3><pre id="research-organization"></pre><h3>执行记录</h3><pre id="research-trace"></pre></details></article></div>
+</section>
+<section id="page-weekly" class="page hidden"><div class="toolbar"><button id="digest" class="primary task-button">生成本周精选</button><select id="weeks" aria-label="选择周报"></select><button id="view-week">查看周报</button><button id="export-html">导出HTML</button><button id="export-markdown">导出Markdown</button><button id="send-mail" class="task-button">发送周报</button><button id="retry-mail" class="task-button">明确重发</button></div><article class="panel"><pre id="weekly-text">周报需要近期完整采集，资料不足时不会为凑数量降低门槛。</pre></article></section>
+<section id="page-settings" class="page hidden"><div class="toolbar"><p class="muted">配置与桌面端共用。密钥仅用于当前进程，关闭后需要重新提供。</p><button id="reload-settings">重新加载</button><button id="save-settings" class="primary">保存设置</button></div><div class="settings-layout"><nav id="settings-nav" class="panel"></nav><form id="settings-form" class="panel"></form></div></section>
+<section id="page-logs" class="page hidden"><article class="panel"><h2>本机操作</h2><div id="operations"></div></article><article class="panel"><h2>运行与用量</h2><pre id="logs-text"></pre></article></section>
+<footer>资料来自已收集项目。模型解释、作者主张与亲自实测应分别核对。</footer>
+</main></body></html>

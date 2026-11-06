@@ -207,7 +207,7 @@ def test_selected_tools_only_search_frozen_scope_expand_source_and_history(resea
     assert not service.store.rows("SELECT * FROM research_bookmarks")
 
 
-@pytest.mark.parametrize("limits,expected_tools", [({"max_calls": 1}, 1), ({"max_tools": 0}, 0)])
+@pytest.mark.parametrize("limits,expected_tools", [({"max_calls": 1}, 0), ({"max_tools": 0}, 0)])
 def test_call_and_tool_limits_stop_before_next_api(research_service, limits, expected_tools):
     service = research_service
     configure(service, **limits)
@@ -215,6 +215,8 @@ def test_call_and_tool_limits_stop_before_next_api(research_service, limits, exp
     job = start(service, mode="agent")
     assert job["state"] == "limited" and len(requests) == 1
     assert service.store.research_job(job["id"])["tools"] == expected_tools
+    # The last decision now reserves its remaining call for an answer; invalid tools are rejected.
+    assert get_body(requests[0])["text"]["format"]["schema"]["properties"]["action"]["enum"] == ["answer"]
 
 
 def test_absolute_deadline_is_not_reset_after_returned_tool(research_service, monkeypatch):

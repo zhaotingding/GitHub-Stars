@@ -40,6 +40,7 @@ def validate(config: dict) -> None:
     types(config, defaults)  # YAML true/false 与整数必须区分。
     ZoneInfo(config["schedule"]["timezone"])
     bounds = {("schedule", "daily_hour"): (0, 23), ("schedule", "weekly_hour"): (0, 23),
+              ("web", "port"): (1024, 65535),
               ("schedule", "weekly_day"): (0, 6), ("digest", "max_projects"): (1, 7),
               ("digest", "hot_slots"): (0, 7), ("digest", "min_score"): (0, 100),
               ("digest", "cooldown_days"): (7, 730), ("discovery", "min_stars"): (0, 1000000),

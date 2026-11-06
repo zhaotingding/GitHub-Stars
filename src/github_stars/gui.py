@@ -13,7 +13,8 @@ from . import __version__
 from .reports import digest_text, export_digest, project_text
 from .research_ui import ResearchPanel
 from .service import Service
-from .store import STUDY_STATES
+from .settings_schema import SECTIONS
+from .store import STUDY_STATES, exclusive
 from .theme import apply_theme, configure_ui_fonts, themed_dialog
 
 BG, CARD, INK, MUTED, GREEN = "#f3f6f2", "#ffffff", "#172f29", "#64786f", "#21634e"
@@ -29,6 +30,7 @@ class App(tk.Tk):
         self.auto_attempted = set()
         self.state_editor = None
         self.busy = False
+        self.web_server = None
         self.results = queue.Queue()
         self.title(f"GitHub Stars++  ·  {__version__}")
         self.geometry("1320x880")
@@ -55,6 +57,8 @@ class App(tk.Tk):
         choice.bind("<<ComboboxSelected>>", lambda _: self.change_theme())
         self.settings_button = ttk.Button(top, text="设置", command=lambda: self.open_settings("API连接"))
         self.settings_button.pack(side="right", padx=(0, 12))
+        self.web_button = ttk.Button(top, text="网页端", command=self.open_web)
+        self.web_button.pack(side="right", padx=(0, 10))
         self.counter = tk.Label(self, bg=BG, fg=MUTED, anchor="w", font=(self.ui_font_family, 11))
         self.counter.pack(fill="x", padx=30, pady=(0, 14))
         self.tabs = ttk.Notebook(self)
@@ -211,9 +215,14 @@ class App(tk.Tk):
             editor.focus_set()
 
     def change_theme(self):
-        config = self.paths.load()
-        config["appearance"]["theme"] = "dark" if self.theme_choice.get() == "深色" else "light"
-        self.paths.save(config)
+        try:
+            with exclusive(self.paths.data / 'config.lock'):
+                config = self.paths.load()
+                config["appearance"]["theme"] = "dark" if self.theme_choice.get() == "深色" else "light"
+                self.paths.save(config)
+        except RuntimeError:
+            self.status.set("其他窗口正在保存设置，请稍后切换主题。")
+            return
         self.config_data["appearance"] = config["appearance"]
         apply_theme(self, config["appearance"]["theme"])
 
@@ -326,37 +335,7 @@ class App(tk.Tk):
         book = self.settings_book = ttk.Notebook(body, style="Settings.TNotebook")
         book.pack(fill="both", expand=True)
         self.settings_pages = {}
-        specs = {
-            "API连接": [("ai", "enabled", "启用模型 API"), ("ai", "credential_source", "文本模型凭据来源"),
-                      ("ai", "model", "初始分析模型 ID"), ("tutorial", "model", "深入教程模型 ID"),
-                      ("research", "model", "研究模型 ID（留空沿用初始分析）"),
-                      ("research", "image_model", "截图解读模型 ID"),
-                      ("research", "image_credential_source", "图片模型凭据来源")],
-            "研究画像": [("profile", "description", "研究背景与阅读偏好"), ("profile", "research_terms", "研究关键词（每行一个）"), ("profile", "hot_terms", "热点关键词（每行一个）")],
-            "发现与筛选": [("discovery", "min_stars", "常规最低 Star"), ("discovery", "new_min_stars", "新项目最低 Star"), ("digest", "max_projects", "每周最多项目数"), ("digest", "hot_slots", "其中热点最多名额"), ("digest", "min_score", "最低推荐分"), ("digest", "cooldown_days", "重复推荐冷却天数")],
-            "检索来源": [("discovery", "research_queries", "研究查询（每行一条 GitHub 语法）"), ("discovery", "hot_queries", "热点查询（每行一条）")],
-            "定时检查": [("schedule", "enabled", "启用自动检查"), ("schedule", "timezone", "时区"), ("schedule", "daily_hour", "每日采集小时（0–23）"), ("schedule", "weekly_day", "周报星期（0=周一，4=周五）"), ("schedule", "weekly_hour", "周报小时（0–23）")],
-            "初始分析": [("ai", "auto_analyze", "打开项目时自动做首次短分析"), ("ai", "service_tier", "服务等级"), ("ai", "max_calls_per_week", "每周最多初始分析请求"), ("ai", "max_output_tokens", "初始分析输出 Token 上限"), ("ai", "readme_chars", "初始分析 README 字符上限"), ("ai", "timeout_seconds", "等待超时（秒）")],
-            "深入教程": [("tutorial", "service_tier", "教程服务等级"), ("tutorial", "max_calls_per_week", "每周最多教程请求"), ("tutorial", "max_output_tokens", "教程输出 Token 上限"), ("tutorial", "readme_chars", "教程 README 字符上限"), ("tutorial", "timeout_seconds", "教程等待超时（秒）")],
-            "项目研究": [("research", "service_tier", "研究服务等级"),
-                     ("research", "max_calls", "每题最多模型调用（含图片）"),
-                     ("research", "max_tools", "每题最多工具动作"),
-                     ("research", "max_images", "每题最多 PNG 截图"),
-                     ("research", "max_calls_per_week", "每周最多研究请求（含图片）"),
-                     ("research", "max_output_tokens", "每次输出 Token 上限"),
-                     ("research", "max_input_chars", "每次输入字符上限"),
-                     ("research", "timeout_seconds", "本题绝对时限（秒）"),
-                     ("research", "history_days", "README / Star 观测回看天数"),
-                     ("research", "max_cost_cny", "每题估算费用上限（人民币）"),
-                     ("research", "input_cny_per_million", "研究输入费率（人民币 / 百万 Token）"),
-                     ("research", "output_cny_per_million", "研究输出费率（人民币 / 百万 Token）"),
-                     ("research", "image_input_cny_per_million", "图片模型输入费率（人民币 / 百万 Token）"),
-                     ("research", "image_output_cny_per_million", "图片模型输出费率（人民币 / 百万 Token）"),
-                     ("research", "interests", "关注主题（每行一个，可留空）"),
-                     ("research", "exclude_terms", "降低优先级的词（每行一个，可留空）")],
-            "提示词": [("ai", "prompt", "初始分析提示词"), ("tutorial", "prompt", "深入教程提示词")],
-            "邮件推送": [("email", "enabled", "启用每周邮件"), ("email", "host", "SMTP 服务器"), ("email", "port", "SMTP 端口"), ("email", "security", "加密方式 ssl / starttls"), ("email", "username", "SMTP 登录用户名"), ("email", "sender", "发件邮箱"), ("email", "recipient", "收件邮箱")],
-        }
+        specs = SECTIONS
         for title, fields in specs.items():
             container = ttk.Frame(book)
             book.add(container, text=title)
@@ -402,6 +381,10 @@ class App(tk.Tk):
                 index += 1
             if title == "定时检查":
                 ttk.Label(page, text="窗口打开时自动检查。关闭窗口后需安装 Windows 计划任务。\n安装命令见 README：tools/install_schedule.ps1；关机期间无法采集，登录后补当前周期。", wraplength=800).grid(row=index, column=0, columnspan=2, sticky="w", pady=24)
+            if title == "网页端":
+                ttk.Label(page, text="在本机浏览器中查看项目、导入资料、研究问答和修改设置，数据与桌面端共用。\n点击打开后再启动服务；仅监听127.0.0.1，不提供局域网或公网访问。\n网页输入的密钥只用于当前应用进程，不写入配置文件。修改端口请先保存设置。",
+                          wraplength=720).grid(row=index, column=0, columnspan=2, sticky="w", pady=20)
+                ttk.Button(page, text="打开本机网页", command=self.open_web).grid(row=index+1, column=1, sticky="w")
             if title == "API连接":
                 ttk.Label(page, text="local 使用本项目系统凭据或启动环境变量。密钥留空保留原值，不写入 YAML。\nWSL 未配置系统凭据服务时，请在启动前提供环境变量；msgx/autogpu 仅支持 Windows 原生运行。\n模型名称以账户可用范围为准；本页保存配置不发送模型测试请求。研究费率和限额在“项目研究”中配置。",
                           wraplength=720).grid(row=index, column=0, columnspan=2, sticky="w", pady=20)
@@ -414,6 +397,42 @@ class App(tk.Tk):
         book.select(self.settings_pages["API连接"])
         self.settings_save_button = ttk.Button(self.settings, text="保存设置", style="Accent.TButton", command=self.save_settings)
         self.settings_save_button.pack(anchor="e", pady=(12, 0))
+        ttk.Button(self.settings, text="重新加载已保存设置", command=self.reload_settings).pack(anchor="e", pady=(6, 0))
+
+    def open_web(self):
+        try:
+            from .web import WebServer, existing_server, open_browser
+            if self.web_server is None or self.web_server.closed:
+                current = existing_server(self.paths)
+                if current:
+                    open_browser(current)
+                    self.status.set("网页端已打开：" + current)
+                    return
+                self.web_server = WebServer(self.paths, port=self.paths.load()['web']['port'], schedule=False)
+                self.web_server.start()
+            open_browser(self.web_server.url)
+            self.status.set("网页端已打开：" + self.web_server.url)
+        except (OSError, RuntimeError, ValueError):
+            self.dialog("网页端未启动", "请检查端口是否被占用或已有网页服务；可在设置中修改端口后重试。")
+
+    def reload_settings(self):
+        if self.busy or (self.web_server and self.web_server.http.app.busy):
+            self.status.set("任务运行中，请稍后重新加载设置。")
+            return
+        if not self.dialog("重新加载设置", "将读取已保存配置，替换当前未保存的表单内容。", confirm=True):
+            return
+        config = self.paths.load()
+        for (section, key), (variable, widget, kind) in self.forms.items():
+            value = config[section][key]
+            if variable is not None:
+                variable.set(value if kind is bool else str(value))
+            else:
+                widget.delete("1.0", "end")
+                widget.insert("1.0", "\n".join(value) if kind is list else value)
+        self.config_data = config
+        self.theme_choice.set("深色" if config['appearance']['theme'] == 'dark' else "浅色")
+        apply_theme(self, config['appearance']['theme'])
+        self.status.set("已重新加载保存的设置。")
 
     def select_settings_category(self, _event=None):
         selected = self.settings_nav.selection()
@@ -428,21 +447,26 @@ class App(tk.Tk):
             self.settings_book.select(self.settings_pages[category])
 
     def save_settings(self):
-        if self.busy:
+        if self.busy or (self.web_server and self.web_server.http.app.busy):
             self.dialog("任务运行中", "请等待当前任务结束后保存设置。")
             return
         try:
+            if self.paths.load() != self.config_data:
+                raise ValueError("设置已被网页端或其他窗口更新，请先点击“重新加载已保存设置”，避免覆盖新配置")
             config = copy.deepcopy(self.config_data)
             for (section, key), (variable, widget, kind) in self.forms.items():
                 value = variable.get() if variable is not None else widget.get("1.0", "end").strip()
                 config[section][key] = [x.strip() for x in value.splitlines() if x.strip()] if kind is list else kind(value)
             from .config import validate
             validate(config)
-            for key, variable in self.secrets.items():
-                if variable.get().strip():
-                    self.paths.set_secret(key, variable.get().strip())
-                    variable.set("")
-            self.paths.save(config)
+            with exclusive(self.paths.data / 'worker.lock'), exclusive(self.paths.data / 'config.lock'):
+                if self.paths.load() != self.config_data:
+                    raise ValueError("设置已被其他窗口更新，请先重新加载已保存设置")
+                for key, variable in self.secrets.items():
+                    if variable.get().strip():
+                        self.paths.set_secret(key, variable.get().strip())
+                        variable.set("")
+                self.paths.save(config)
             self.config_data = config
             apply_theme(self, config["appearance"]["theme"])
             self.status.set("设置已保存，密钥不写入 YAML。下一次任务读取新设置。")
@@ -518,7 +542,7 @@ class App(tk.Tk):
         self.research.refresh()
 
     def work(self, label, callback, quiet=False):
-        if self.busy:
+        if self.busy or (self.web_server and self.web_server.http.app.busy):
             if not quiet:
                 self.status.set("已有任务正在运行，请等待完成。")
             return False
@@ -561,12 +585,14 @@ class App(tk.Tk):
         self.after(200, self.poll)
 
     def scheduled(self):
-        if not self.busy:
+        if not self.busy and not (self.web_server and self.web_server.http.app.busy):
             self.work("检查定时任务…", lambda: self.service.run("tick"), quiet=True)
         self.after(60000, self.scheduled)
 
     def close(self):
-        if self.busy:
+        if self.busy or (self.web_server and self.web_server.http.app.busy):
             self.dialog("任务运行中", "当前任务尚未结束，请稍候关闭，避免中断生成或邮件发送。")
         else:
+            if self.web_server:
+                self.web_server.close()
             self.destroy()

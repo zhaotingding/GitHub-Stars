@@ -33,6 +33,8 @@ def main(argv=None):
     parser.add_argument("--version", action="version", version=__version__)
     parser.add_argument("--check-environment", action="store_true")
     parser.add_argument("--url", help="导入仓库链接或包含 Markdown 链接的文字")
+    parser.add_argument('--port', type=int, help='本机网页端口，默认读取设置')
+    parser.add_argument('--open-browser', action='store_true', help='启动网页服务后打开浏览器')
     parser.add_argument('--question', help='项目研究问题')
     parser.add_argument('--job-id', help='已保存的研究任务编号')
     parser.add_argument('--mode', choices=['standard', 'agent'], default='standard')
@@ -43,7 +45,7 @@ def main(argv=None):
     parser.add_argument('--unsave', action='store_true', help='取消收藏')
     research_commands = ['research', 'research-status', 'research-resume', 'research-continue',
                          'research-cancel', 'research-bookmark', 'research-feedback']
-    parser.add_argument("command", nargs="?", choices=["gui", "scan", "digest", "tick", "status", "import"]+research_commands, default="gui")
+    parser.add_argument("command", nargs="?", choices=["gui", "web", "scan", "digest", "tick", "status", "import"]+research_commands, default="gui")
     args = parser.parse_args(argv)
     if args.check_environment:
         result = environment()
@@ -54,6 +56,25 @@ def main(argv=None):
         if args.command == "gui":
             from .gui import App
             App(paths).mainloop()
+        elif args.command == 'web':
+            from .web import WebServer, open_browser
+            server = WebServer(paths, port=args.port if args.port is not None else paths.load()['web']['port'])
+            server.start()
+            print('GitHub Stars++ 网页端：' + server.url, flush=True)
+            if args.open_browser:
+                open_browser(server.url)
+            thread = server.thread
+            try:
+                while thread.is_alive():
+                    try:
+                        thread.join(.5)
+                    except KeyboardInterrupt:
+                        if server.http.app.busy:
+                            print('任务运行中；请在网页停止研究或等待完成，再按Ctrl+C关闭。', flush=True)
+                        else:
+                            break
+            finally:
+                server.close()
         else:
             service = Service(paths)
             if args.command in research_commands:

@@ -20,7 +20,7 @@ github-stars = "github_stars.__main__:main"
 version = {attr = "github_stars.__version__"}
 
 [tool.setuptools.package-data]
-github_stars = ["defaults.yaml"]
+github_stars = ["defaults.yaml", "web_assets/*.html", "web_assets/*.css", "web_assets/*.js"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

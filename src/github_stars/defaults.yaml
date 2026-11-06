@@ -1,5 +1,7 @@
 appearance:
   theme: dark
+web:
+  port: 8765
 schedule:
   enabled: true
   timezone: Asia/Shanghai

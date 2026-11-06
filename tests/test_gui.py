@@ -68,6 +68,16 @@ def test_empty_gui_settings_save_and_reopen(tmp_path, monkeypatch):
         app.update()  # Windows Configure 消息先落地，随后检查子控件布局。
         app.update_idletasks()
         assert app.tabs.winfo_y() + app.tabs.winfo_height() < app.winfo_height()
+        updated = paths.load()
+        updated['profile']['description'] = '网页端新保存的研究方向'
+        paths.save(updated)
+        messages = []
+        app.dialog = lambda _title, text, **_kwargs: messages.append(text) or True
+        app.save_settings()
+        assert messages and '重新加载' in messages[0]
+        assert paths.load()['profile']['description'] == '网页端新保存的研究方向'
+        app.reload_settings()
+        assert app.config_data['profile']['description'] == '网页端新保存的研究方向'
     finally:
         for task in app.tk.call("after", "info"):
             app.after_cancel(task)
